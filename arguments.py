@@ -4,12 +4,12 @@ import argparse
 
 
 def make_study_string(params):
-    return params.env_name + '_' + params.gradient_name + '_' + params.critic_update_method \
+    return params.env_name + '_' + params.critic_update_method \
            + '_' + params.critic_estim_method + '_eval_' + str(params.deterministic_eval)
 
 
 def make_study_params_string(params):
-    return 'cycles_' + str(params.nb_cycles) + '_trajs_' + str(params.nb_trajs) + '_batches_' + str(params.nb_batches)
+    return 'cycles_' + str(params.nb_cycles) + '_trajs_' + str(params.nb_rollouts) + '_batches_' + str(params.nb_batches)
 
 
 def make_learning_params_string(params):

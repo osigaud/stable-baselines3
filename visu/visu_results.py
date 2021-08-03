@@ -195,13 +195,11 @@ def plot_results(params) -> None:
     :param params: parameters of the study
     :return: nothing
     """
-    assert params.gradient_name in ['pg', 'regress', 'nstep'], 'unsupported study name'
-    if params.gradient_name == "pg":
+    assert params.study_name in ['pg', 'regress', 'nstep'], 'unsupported study name'
+    if params.study_name == "pg":
         exploit_duration_full(params)
         exploit_reward_full(params)
-        exploit_policy_loss_full(params)
-        exploit_critic_loss_full(params)
-    elif params.gradient_name == "nstep":
+    elif params.study_name == "nstep":
         exploit_nstep(params)
 
 

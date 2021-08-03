@@ -3,9 +3,11 @@ import os
 import random
 import numpy as np
 import torch
+import gym
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, TextIO
 from chrono import Chrono
-from stable_baselines3 import REINFORCE
+from stable_baselines3 import REINFORCE, TD3, A2C
+from stable_baselines3.reinforce.custom_monitor import CustomMonitor
 
 from arguments import get_args
 from visu.visu_results import plot_results
@@ -46,13 +48,37 @@ def set_files(study_name, env_name) -> Tuple[TextIO,TextIO]:
     return policy_loss_file, critic_loss_file
 
 
-if __name__ == '__main__':
+def test_reinforce():
     args = get_args()
     print(args)
     create_data_folders()
     chrono = Chrono()
-    grad = args.gradients[0]
-    model = REINFORCE('MlpPolicy', 'CartPole-v1', args.gradients[0], args.beta, args.nb_rollouts, args.max_episode_steps).learn(100)
+
+    REINFORCE('MlpPolicy', 'CartPole-v1', args.gradients[0], args.beta, args.nb_rollouts, args.max_episode_steps).learn(100)
     chrono.stop()
     plot_results(args)
+
+
+def test_monitor():
+    args = get_args()
+    chrono = Chrono()
+    # Create log dir
+    log_dir = "data/save/"
+    os.makedirs(log_dir, exist_ok=True)
+    env_name = args.env_name
+
+    # Create and wrap the environment
+    env = gym.make(env_name)
+    grads = args.gradients
+    for i in range(len(grads)):
+        file_name =  grads[i] + '_' + env_name
+        env = CustomMonitor(env, log_dir, file_name)
+        model = A2C('MlpPolicy', env)
+        model.learn(2000)
+
+    chrono.stop()
+    plot_results(args)
+
+if __name__ == '__main__':
+    test_monitor()
 
