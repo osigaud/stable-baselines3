@@ -4,7 +4,6 @@ import torch as th
 from gym import spaces
 from torch.nn import functional as F
 
-from stable_baselines3.common import logger
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
@@ -34,10 +33,6 @@ class REINFORCE(PGAlgorithm):
     :param rms_prop_eps: RMSProp epsilon. It stabilizes square root computation in denominator
         of RMSProp update
     :param use_rms_prop: Whether to use RMSprop (default) or Adam as optimizer
-    :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
-        instead of action noise exploration (default: False)
-    :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
-        Default: -1 (only sample at the beginning of the rollout)
     :param normalize_advantage: Whether to normalize or not the advantage
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -54,10 +49,10 @@ class REINFORCE(PGAlgorithm):
         self,
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
-        gradient_name,
-        beta,
-        nb_rollouts,
-        max_episode_steps,
+        gradient_name: str = "sum",
+        beta: float = 0.0,
+        nb_rollouts: int = 1,
+        max_episode_steps: Optional[int] = None,
         learning_rate: Union[float, Schedule] = 7e-4,
         n_steps: int = 5,
         gamma: float = 0.99,
@@ -67,8 +62,6 @@ class REINFORCE(PGAlgorithm):
         max_grad_norm: float = 0.5,
         rms_prop_eps: float = 1e-5,
         use_rms_prop: bool = True,
-        use_sde: bool = False,
-        sde_sample_freq: int = -1,
         normalize_advantage: bool = False,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -93,8 +86,6 @@ class REINFORCE(PGAlgorithm):
             ent_coef=ent_coef,
             vf_coef=vf_coef,
             max_grad_norm=max_grad_norm,
-            use_sde=use_sde,
-            sde_sample_freq=sde_sample_freq,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -109,8 +100,6 @@ class REINFORCE(PGAlgorithm):
                 spaces.MultiBinary,
             ),
         )
-        self.gradient_name = gradient_name
-        self.beta = beta
         self.normalize_advantage = normalize_advantage
 
         # Update optimizer inside the policy if we want to use RMSProp
@@ -130,55 +119,54 @@ class REINFORCE(PGAlgorithm):
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
 
-        # This will only loop once (get all data in one go)
-        for episode in range(self.rollout_buffer.n_episodes_stored):
-            rollout_data = self.rollout_buffer.get_samples(episode)
-            actions = rollout_data.actions
-            if isinstance(self.action_space, spaces.Discrete):
-                # Convert discrete action from float to long
-                actions = actions.long().flatten()
+        # Get all data in one go)
+        rollout_data = self.rollout_buffer.get_samples()
+        actions = rollout_data.actions
+        if isinstance(self.action_space, spaces.Discrete):
+            # Convert discrete action from float to long
+            actions = actions.long().flatten()
 
-            # TODO: avoid second computation of everything because of the gradient
-            values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
-            values = values.flatten()
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
+        values = values.flatten()
 
-            # Normalize advantage (not present in the original implementation)
-            advantages = rollout_data.advantages
-            if self.normalize_advantage:
-                advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        # Normalize advantage (not present in the original implementation)
+        advantages = rollout_data.advantages
+        if self.normalize_advantage:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-            # Policy gradient loss
-            policy_loss = -(advantages * log_prob).mean()
+        # Policy gradient loss
+        policy_loss = -(advantages * log_prob).mean()
 
-            # Value loss using the TD(gae_lambda) target
-            value_loss = F.mse_loss(rollout_data.returns, values)
+        # Value loss using the TD(gae_lambda) target
+        value_loss = F.mse_loss(rollout_data.returns, values)
 
-            # Entropy loss favor exploration
-            if entropy is None:
-                # Approximate entropy when no analytical form
-                entropy_loss = -th.mean(-log_prob)
-            else:
-                entropy_loss = -th.mean(entropy)
+        # Entropy loss favor exploration
+        if entropy is None:
+            # Approximate entropy when no analytical form
+            entropy_loss = -th.mean(-log_prob)
+        else:
+            entropy_loss = -th.mean(entropy)
 
-            loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+        loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
 
-            # Optimization step
-            self.policy.optimizer.zero_grad()
-            loss.backward()
+        # Optimization step
+        self.policy.optimizer.zero_grad()
+        loss.backward()
 
-            # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-            self.policy.optimizer.step()
+        # Clip grad norm
+        th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+        self.policy.optimizer.step()
 
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
         self._n_updates += 1
-        logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        logger.record("train/explained_variance", explained_var)
-        logger.record("train/policy_loss", policy_loss.item())
-        logger.record("train/value_loss", value_loss.item())
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/policy_loss", policy_loss.item())
+        self.logger.record("train/value_loss", value_loss.item())
         if hasattr(self.policy, "log_std"):
-            logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
     def learn(
         self,

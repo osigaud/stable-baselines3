@@ -12,6 +12,7 @@ from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 
 
@@ -31,10 +32,6 @@ class PGAlgorithm(BaseAlgorithm):
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
-    :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
-        instead of action noise exploration (default: False)
-    :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
-        Default: -1 (only sample at the beginning of the rollout)
     :param policy_base: The base policy used by this method
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -63,8 +60,6 @@ class PGAlgorithm(BaseAlgorithm):
         ent_coef: float,
         vf_coef: float,
         max_grad_norm: float,
-        use_sde: bool,
-        sde_sample_freq: int,
         policy_base: Type[BasePolicy] = ActorCriticPolicy,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -84,8 +79,7 @@ class PGAlgorithm(BaseAlgorithm):
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            use_sde=use_sde,
-            sde_sample_freq=sde_sample_freq,
+            use_sde=False,
             create_eval_env=create_eval_env,
             support_multi_env=True,
             seed=seed,
@@ -111,9 +105,12 @@ class PGAlgorithm(BaseAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = EpisodicBuffer
+        if self.env is not None:
+            max_episode_steps = get_time_limit(self.env, self.max_episode_steps)
+        else:
+            max_episode_steps = self.max_episode_steps
 
-        self.rollout_buffer = buffer_cls(
+        self.rollout_buffer = EpisodicBuffer(
             self.observation_space,
             self.action_space,
             self.device,
@@ -124,14 +121,14 @@ class PGAlgorithm(BaseAlgorithm):
             self.gradient_name,
             self.beta,
             self.nb_rollouts,
-            self.max_episode_steps,
+            max_episode_steps=max_episode_steps,
             handle_timeout_termination=True,
         )
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
             self.observation_space,
             self.action_space,
             self.lr_schedule,
-            use_sde=self.use_sde,
+            use_sde=False,
             **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
@@ -157,16 +154,10 @@ class PGAlgorithm(BaseAlgorithm):
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         rollout_buffer.reset()
-        # Sample new weights for the state dependent exploration
-        if self.use_sde:
-            self.policy.reset_noise(env.num_envs)
 
         callback.on_rollout_start()
 
         while rollout_buffer.n_episodes_stored < self.nb_rollouts:
-            if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
-                # Sample a new noise matrix
-                self.policy.reset_noise(env.num_envs)
 
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
@@ -247,7 +238,6 @@ class PGAlgorithm(BaseAlgorithm):
 
             iteration += 1
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
                 fps = int(self.num_timesteps / (time.time() - self.start_time))
