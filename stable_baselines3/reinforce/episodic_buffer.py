@@ -8,7 +8,7 @@ from gym import spaces
 from stable_baselines3.common.buffers import BaseBuffer
 from stable_baselines3.common.preprocessing import get_obs_shape
 from stable_baselines3.common.type_aliases import ReplayBufferSamples, RolloutBufferSamples
-from stable_baselines3.common.vec_env import VecEnv, VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize
 
 
 class EpisodicBuffer(BaseBuffer):
