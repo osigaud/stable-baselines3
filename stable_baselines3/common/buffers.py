@@ -49,7 +49,7 @@ class BaseBuffer(ABC):
         self.obs_shape = get_obs_shape(observation_space)
 
         self.action_dim = get_action_dim(action_space)
-        self.episode = 0
+        self.pos = 0
         self.full = False
         self.device = device
         self.n_envs = n_envs
@@ -75,7 +75,7 @@ class BaseBuffer(ABC):
         """
         if self.full:
             return self.buffer_size
-        return self.episode
+        return self.pos
 
     def add(self, *args, **kwargs) -> None:
         """
@@ -95,7 +95,7 @@ class BaseBuffer(ABC):
         """
         Reset the buffer.
         """
-        self.episode = 0
+        self.pos = 0
         self.full = False
 
     def sample(self, batch_size: int, env: Optional[VecNormalize] = None):
@@ -105,7 +105,7 @@ class BaseBuffer(ABC):
             to normalize the observations/rewards when sampling
         :return:
         """
-        upper_bound = self.buffer_size if self.full else self.episode
+        upper_bound = self.buffer_size if self.full else self.pos
         batch_inds = np.random.randint(0, upper_bound, size=batch_size)
         return self._get_samples(batch_inds, env=env)
 
@@ -231,22 +231,22 @@ class ReplayBuffer(BaseBuffer):
         infos: List[Dict[str, Any]],
     ) -> None:
         # Copy to avoid modification by reference
-        self.observations[self.episode] = np.array(obs).copy()
+        self.observations[self.pos] = np.array(obs).copy()
 
         if self.optimize_memory_usage:
-            self.observations[(self.episode + 1) % self.buffer_size] = np.array(next_obs).copy()
+            self.observations[(self.pos + 1) % self.buffer_size] = np.array(next_obs).copy()
         else:
-            self.next_observations[self.episode] = np.array(next_obs).copy()
+            self.next_observations[self.pos] = np.array(next_obs).copy()
 
-        self.actions[self.episode] = np.array(action).copy()
-        self.rewards[self.episode] = np.array(reward).copy()
-        self.dones[self.episode] = np.array(done).copy()
+        self.actions[self.pos] = np.array(action).copy()
+        self.rewards[self.pos] = np.array(reward).copy()
+        self.dones[self.pos] = np.array(done).copy()
 
         if self.handle_timeout_termination:
-            self.timeouts[self.episode] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
+            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
 
-        self.episode += 1
-        if self.episode == self.buffer_size:
+        self.pos += 1
+        if self.pos == self.buffer_size:
             self.full = True
             self.pos = 0
 
@@ -412,14 +412,14 @@ class RolloutBuffer(BaseBuffer):
         if isinstance(self.observation_space, spaces.Discrete):
             obs = obs.reshape((self.n_envs,) + self.obs_shape)
 
-        self.observations[self.episode] = np.array(obs).copy()
-        self.actions[self.episode] = np.array(action).copy()
-        self.rewards[self.episode] = np.array(reward).copy()
-        self.episode_starts[self.episode] = np.array(episode_start).copy()
-        self.values[self.episode] = value.clone().cpu().numpy().flatten()
-        self.log_probs[self.episode] = log_prob.clone().cpu().numpy()
-        self.episode += 1
-        if self.episode == self.buffer_size:
+        self.observations[self.pos] = np.array(obs).copy()
+        self.actions[self.pos] = np.array(action).copy()
+        self.rewards[self.pos] = np.array(reward).copy()
+        self.episode_starts[self.pos] = np.array(episode_start).copy()
+        self.values[self.pos] = value.clone().cpu().numpy().flatten()
+        self.log_probs[self.pos] = log_prob.clone().cpu().numpy()
+        self.pos += 1
+        if self.pos == self.buffer_size:
             self.full = True
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RolloutBufferSamples, None, None]:
@@ -694,15 +694,15 @@ class DictRolloutBuffer(RolloutBuffer):
             # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
             if isinstance(self.observation_space.spaces[key], spaces.Discrete):
                 obs_ = obs_.reshape((self.n_envs,) + self.obs_shape[key])
-            self.observations[key][self.episode] = obs_
+            self.observations[key][self.pos] = obs_
 
-        self.actions[self.episode] = np.array(action).copy()
-        self.rewards[self.episode] = np.array(reward).copy()
-        self.episode_starts[self.episode] = np.array(episode_start).copy()
-        self.values[self.episode] = value.clone().cpu().numpy().flatten()
-        self.log_probs[self.episode] = log_prob.clone().cpu().numpy()
-        self.episode += 1
-        if self.episode == self.buffer_size:
+        self.actions[self.pos] = np.array(action).copy()
+        self.rewards[self.pos] = np.array(reward).copy()
+        self.episode_starts[self.pos] = np.array(episode_start).copy()
+        self.values[self.pos] = value.clone().cpu().numpy().flatten()
+        self.log_probs[self.pos] = log_prob.clone().cpu().numpy()
+        self.pos += 1
+        if self.pos == self.buffer_size:
             self.full = True
 
     def get(self, batch_size: Optional[int] = None) -> Generator[DictRolloutBufferSamples, None, None]:
