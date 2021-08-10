@@ -1,18 +1,16 @@
-
 import time
 from typing import List, Optional, Union
-
 import gym
 import numpy as np
 
 from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
 
-
 class CustomMonitor(gym.Wrapper):
     """
     A monitor wrapper for Gym environments, it is used to know the episode reward, length, time and other data.
-    :param env: The environment
-    :param filename: the location to save a log file, can be None for no log
+    :param env: The environment to be wrapped
+    :param dir_name: the location to save a log file
+    :param file_name: the location to save a log file, can be None for no log
     :param allow_early_resets: allows the reset of the environment before it is done
     """
 
@@ -53,6 +51,9 @@ class CustomMonitor(gym.Wrapper):
         self.rewards = []
         self.needs_reset = False
         return self.env.reset(**kwargs)
+
+    def start_again(self) -> None:
+        self.num_episode = 0
 
     def step(self, action: Union[np.ndarray, int]) -> GymStepReturn:
         """

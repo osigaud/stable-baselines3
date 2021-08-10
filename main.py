@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 import gym
+import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
 from typing import Any, Dict, List, Optional, Tuple, Type, Union, TextIO
 from chrono import Chrono
 from stable_baselines3 import REINFORCE, TD3, A2C
@@ -17,6 +18,11 @@ torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
 
+#env = gym.make('CartPoleContinuous-v0')
+
+# to see the list of available gym environments, type:
+# from gym import envs
+# print(envs.registry.all())
 
 def create_data_folders() -> None:
     """
@@ -65,16 +71,21 @@ def test_monitor():
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
+    args.env_name = 'Pendulum-v0'
     env_name = args.env_name
+
 
     # Create and wrap the environment
     env = gym.make(env_name)
     grads = args.gradients
+    nb_repet = 5
     for i in range(len(grads)):
         file_name =  grads[i] + '_' + env_name
         env = CustomMonitor(env, log_dir, file_name)
         model = A2C('MlpPolicy', env)
-        model.learn(2000)
+        for i in range(nb_repet):
+            model.learn(2000)
+            env.start_again()
 
     chrono.stop()
     plot_results(args)
