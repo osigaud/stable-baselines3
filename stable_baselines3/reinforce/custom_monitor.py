@@ -1,9 +1,11 @@
 import time
 from typing import List, Optional, Union
+
 import gym
 import numpy as np
 
 from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
+
 
 class CustomMonitor(gym.Wrapper):
     """
@@ -124,11 +126,7 @@ class CustomResultsWriter:
     :param file_name: the root name of the log files
     """
 
-    def __init__(
-        self,
-        dir_name: str = "",
-        file_name: str = ""
-    ):
+    def __init__(self, dir_name: str = "", file_name: str = ""):
         duration_name = dir_name + "duration_" + file_name + ".txt"
         self.duration_file = open(duration_name, "w")
         reward_name = dir_name + "reward_" + file_name + ".txt"
@@ -140,8 +138,8 @@ class CustomResultsWriter:
         :param reward: Total reward of the episode
         :param duration: Duration of the episode
         """
-        self.reward_file.write(num + ' ' + reward + '\n')
-        self.duration_file.write(num + ' ' + duration + '\n')
+        self.reward_file.write(num + " " + reward + "\n")
+        self.duration_file.write(num + " " + duration + "\n")
         self.reward_file.flush()
         self.duration_file.flush()
 

@@ -1,18 +1,15 @@
+import math
 from typing import Any, Dict, List, Optional, Union
 
-import math
 import numpy as np
 import torch as th
 from gym import spaces
 
-from stable_baselines3.her.her_replay_buffer import get_time_limit
-from stable_baselines3.common.vec_env import VecEnv
-from stable_baselines3.common.preprocessing import get_obs_shape
-from stable_baselines3.common.type_aliases import (
-    RolloutBufferSamples, ReplayBufferSamples
-)
-from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.buffers import BaseBuffer
+from stable_baselines3.common.preprocessing import get_obs_shape
+from stable_baselines3.common.type_aliases import ReplayBufferSamples, RolloutBufferSamples
+from stable_baselines3.common.vec_env import VecEnv, VecNormalize
+from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 try:
     # Check memory used by replay buffer when possible
@@ -47,23 +44,23 @@ class EpisodicBuffer(BaseBuffer):
     """
 
     def __init__(
-            self,
-            observation_space: spaces.Space,
-            action_space: spaces.Space,
-            device: Union[th.device, str] = "cpu",
-            gae_lambda: float = 1,
-            gamma: float = 0.99,
-            n_envs: int = 1,
-            n_steps: int = 5,
-            gradient_name: str = 'discount',
-            beta: float = 1.0,
-            nb_rollouts: int = 1,
-            max_episode_steps: int = 1,
-            handle_timeout_termination: bool = True
+        self,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        device: Union[th.device, str] = "cpu",
+        gae_lambda: float = 1,
+        gamma: float = 0.99,
+        n_envs: int = 1,
+        n_steps: int = 5,
+        gradient_name: str = "discount",
+        beta: float = 1.0,
+        nb_rollouts: int = 1,
+        max_episode_steps: int = 1,
+        handle_timeout_termination: bool = True,
     ):
         print(nb_rollouts)
         print(max_episode_steps)
-        buffer_size = nb_rollouts*max_episode_steps
+        buffer_size = nb_rollouts * max_episode_steps
         super(EpisodicBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
         self.gradient_name = gradient_name
         self.gae_lambda = gae_lambda
@@ -130,12 +127,12 @@ class EpisodicBuffer(BaseBuffer):
         self.critic_target = critic_target
 
     def add(
-            self,
-            obs: Dict[str, np.ndarray],
-            action: np.ndarray,
-            reward: np.ndarray,
-            done: np.ndarray,
-            infos: List[Dict[str, Any]],
+        self,
+        obs: Dict[str, np.ndarray],
+        action: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        infos: List[Dict[str, Any]],
     ) -> None:
 
         # Remove termination signals due to timeout
@@ -159,8 +156,9 @@ class EpisodicBuffer(BaseBuffer):
 
     def get_samples(self, episode: int) -> RolloutBufferSamples:
         assert self.full, "digging into a non full batch"
-        return RolloutBufferSamples(*tuple(map(self.to_torch,
-                                               [self.get_sample(episode, i) for i in self.episode_lengths[episode]])))
+        return RolloutBufferSamples(
+            *tuple(map(self.to_torch, [self.get_sample(episode, i) for i in self.episode_lengths[episode]]))
+        )
 
     def get_sample(self, episode: int, index: int) -> Any:
         data = (
@@ -169,7 +167,7 @@ class EpisodicBuffer(BaseBuffer):
             self.values[episode][index],
             self.log_probs[episode][index],
             self.advantages[episode][index],
-            self.returns[episode][index]
+            self.returns[episode][index],
         )
         return data
 
@@ -226,8 +224,15 @@ class EpisodicBuffer(BaseBuffer):
 
         :param last_values: state value estimation for the last step (one for each env)
         """
-        assert self.gradient_name in ['beta', 'sum', 'discount', 'normalize', 'baseline', 'n_step',
-                                      'gae'], 'unsupported gradient name'
+        assert self.gradient_name in [
+            "beta",
+            "sum",
+            "discount",
+            "normalize",
+            "baseline",
+            "n_step",
+            "gae",
+        ], "unsupported gradient name"
         if self.gradient_name == "beta":
             self.exponentiate_rewards(self.beta)
         elif self.gradient_name == "sum":
@@ -328,9 +333,9 @@ class EpisodicBuffer(BaseBuffer):
 
     def normalize_rewards(self) -> None:
         """
-         Apply a normalized and discounted sum of rewards to all samples of all episodes
-         :return: nothing
-         """
+        Apply a normalized and discounted sum of rewards to all samples of all episodes
+        :return: nothing
+        """
         reward_mean = 0
         reward_pool = []
         for ep in range(self.episode):
@@ -348,9 +353,9 @@ class EpisodicBuffer(BaseBuffer):
 
     def normalize_discounted_rewards(self) -> None:
         """
-         Apply a normalized and discounted sum of rewards to all samples of the episode
-         :return: nothing
-         """
+        Apply a normalized and discounted sum of rewards to all samples of the episode
+        :return: nothing
+        """
         reward_mean = 0
         reward_pool = []
         for ep in range(self.episode):

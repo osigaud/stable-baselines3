@@ -7,12 +7,12 @@ import torch as th
 
 from stable_baselines3.common import logger
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 
 
 class PGAlgorithm(BaseAlgorithm):
@@ -125,7 +125,7 @@ class PGAlgorithm(BaseAlgorithm):
             self.beta,
             self.nb_rollouts,
             self.max_episode_steps,
-            handle_timeout_termination=True
+            handle_timeout_termination=True,
         )
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
             self.observation_space,
@@ -233,8 +233,7 @@ class PGAlgorithm(BaseAlgorithm):
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path,
-            reset_num_timesteps, tb_log_name
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
         callback.on_training_start(locals(), globals())

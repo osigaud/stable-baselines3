@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, Type, Union
 import os
+from typing import Any, Dict, Optional, Type, Union
+
 import numpy as np
 import torch as th
 from gym import spaces
@@ -7,7 +8,7 @@ from gym import spaces
 from stable_baselines3.common import logger
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy
-from stable_baselines3.common.type_aliases import GymEnv, Schedule, MaybeCallback
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 
 
 class CEM(BaseAlgorithm):
@@ -32,10 +33,18 @@ class CEM(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    def learn(self, total_timesteps: int, callback: MaybeCallback = None, log_interval: int = 100,
-              tb_log_name: str = "run", eval_env: Optional[GymEnv] = None, eval_freq: int = -1,
-              n_eval_episodes: int = 5, eval_log_path: Optional[str] = None,
-              reset_num_timesteps: bool = True) -> "BaseAlgorithm":
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 100,
+        tb_log_name: str = "run",
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+    ) -> "BaseAlgorithm":
         pass
 
     def _setup_model(self) -> None:
@@ -89,13 +98,12 @@ class CEM(BaseAlgorithm):
 
     def train(self, params) -> None:
         """
-       The main function to learn policies using the Cross Enthropy Method
-        Update policy using the currently gathered
-        rollout buffer (one gradient step over whole data).
+        The main function to learn policies using the Cross Enthropy Method
+         Update policy using the currently gathered
+         rollout buffer (one gradient step over whole data).
         """
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
-
 
         # Initialize variables
         self.list_weights = []
@@ -136,7 +144,7 @@ class CEM(BaseAlgorithm):
         # Init the rng
         rng = np.random.default_rng()
         # Training Loop
-        with SlowBar('Performing a repetition of CEM', max=params.nb_cycles) as bar:
+        with SlowBar("Performing a repetition of CEM", max=params.nb_cycles) as bar:
             for cycle in range(params.nb_cycles):
                 rewards = np.zeros(params.population)
                 weights = rng.multivariate_normal(centroid, var, params.population)
