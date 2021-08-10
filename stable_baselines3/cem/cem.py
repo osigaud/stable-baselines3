@@ -122,9 +122,10 @@ class CEM(BaseAlgorithm):
         print("Shape of weights vector is: ", self.policy.get_weights_dim())
 
         if params.start_from_policy:
-            starting_weights = get_starting_weights(pw)
-            centroid = starting_weights
-
+            # TODO(olivier): start from existing policy weights
+            # starting_weights = get_starting_weights(pw)
+            # centroid = starting_weights
+            raise NotImplementedError()
         # Init the first centroid
         elif params.start_from_same_policy:
             centroid = self.policy.get_weights()
@@ -144,7 +145,7 @@ class CEM(BaseAlgorithm):
         # Init the rng
         rng = np.random.default_rng()
         # Training Loop
-        with SlowBar("Performing a repetition of CEM", max=params.nb_cycles) as bar:
+        with SlowBar("Performing a repetition of CEM", max=params.nb_cycles) as bar:  # pytype: disable=name-error
             for cycle in range(params.nb_cycles):
                 rewards = np.zeros(params.population)
                 weights = rng.multivariate_normal(centroid, var, params.population)
@@ -183,7 +184,8 @@ class CEM(BaseAlgorithm):
                     self.best_weights_idx = cycle
                 # Save the best policy obtained
                 if (cycle % params.save_freq) == 0:
-                    pw.save(method="CEM", cycle=cycle + 1, score=total_reward)
+                    raise NotImplementedError()
+                    # pw.save(method="CEM", cycle=cycle + 1, score=total_reward)
                 bar.next()
 
         # pw.rename_best(method="CEM",best_cycle=self.best_weights_idx,best_score=self.best_reward)
