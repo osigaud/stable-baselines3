@@ -240,7 +240,7 @@ class EpisodicBuffer(BaseBuffer):
         elif self.gradient_name == "gae":
             self.process_gae(last_values)
         else:
-            raise NotImplementedError(f"The gradient {gradient_name} is not implemented")
+            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
 
     def process_gae(self, last_values: th.Tensor) -> None:
         """
