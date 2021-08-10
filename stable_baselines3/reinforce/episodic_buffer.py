@@ -141,34 +141,17 @@ class EpisodicBuffer(BaseBuffer):
         n_steps = sum(self.episode_lengths)
         total_steps = self.nb_rollouts * n_steps
         all_transitions = np.array([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
-        all_episodes = np.array([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)]).astype(
-            np.uint64
-        )
+        all_episodes = np.array([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
+        all_episodes = all_episodes.astype(np.uint64)
 
         # Retrieve all transition and flatten the arrays
         return RolloutBufferSamples(
             self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
-            self.to_torch(
-                self.values[all_episodes, all_transitions].reshape(
-                    total_steps,
-                )
-            ),
-            self.to_torch(
-                self.log_probs[all_episodes, all_transitions].reshape(
-                    total_steps,
-                )
-            ),
-            self.to_torch(
-                self.advantages[all_episodes, all_transitions].reshape(
-                    total_steps,
-                )
-            ),
-            self.to_torch(
-                self.returns[all_episodes, all_transitions].reshape(
-                    total_steps,
-                )
-            ),
+            self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.advantages[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.returns[all_episodes, all_transitions].reshape(total_steps)),
         )
 
     def _get_samples(
