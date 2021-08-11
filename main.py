@@ -63,14 +63,15 @@ def test_reinforce() -> None:
     #grads = args.gradients
     grads = ["gae"]
     nb_repet = 5
+    args.nb_rollouts = 2
     for i in range(len(grads)):
         file_name = grads[i] + '_' + env_name
         print(grads[i])
-        # env = CustomMonitor(env_init, log_dir, file_name)
+        env = CustomMonitor(env_init, log_dir, file_name)
         model = REINFORCE('MlpPolicy', env_name, grads[i], args.beta, args.nb_rollouts, args.max_episode_steps, seed=1,
         verbose=1)
         for rep in range(nb_repet):
-            # env.start_again()
+            env.start_again()
             model.learn(2000)
 
     chrono.stop()
@@ -87,5 +88,5 @@ def test2():
     model.learn(int(1e5))
 
 if __name__ == '__main__':
-    test2()
-    # test_reinforce()
+    # test2()
+    test_reinforce()
