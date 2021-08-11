@@ -304,7 +304,7 @@ def plot_pendulum_critic(
         for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
             obs = np.array([[np.cos(t), np.sin(t), td]])
             with th.no_grad():
-                action, value, log_probs = policy.forward(obs_as_tensor(obs), deterministic)
+                action, value, log_probs = policy.forward(obs_as_tensor(obs, "cpu"), deterministic)
             portrait[definition - (1 + index_td), index_t] = value.item()
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
@@ -312,4 +312,4 @@ def plot_pendulum_critic(
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
+    final_show(save_figure, plot, figname, x_label, y_label, "Critic phase portrait", "/plots/")

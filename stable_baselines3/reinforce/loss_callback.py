@@ -67,9 +67,9 @@ class LossCallback(BaseCallback):
         """
         This event is triggered before exiting the `learn()` method.
         """
-        num = 0
-        policy_loss = 0
-        critic_loss = 0
+        num = self.logger.name_to_value["train/num_episode"]
+        policy_loss = self.logger.name_to_value["train/policy_loss"]
+        critic_loss = self.logger.name_to_value["train/value_loss"]
         self.policy_loss_file.write(num + " " + policy_loss + "\n")
         self.critic_loss_file.write(num + " " + critic_loss + "\n")
         self.policy_loss_file.flush()
