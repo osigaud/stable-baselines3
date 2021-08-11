@@ -8,13 +8,12 @@ import numpy as np
 import torch
 from arguments import get_args
 from chrono import Chrono
+from visu.visu_critics import plot_pendulum_critic
+from visu.visu_policies import plot_pendulum_policy
 from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
 from stable_baselines3.reinforce.custom_monitor import CustomMonitor
-
-from visu.visu_policies import plot_pendulum_policy
-from visu.visu_critics import plot_pendulum_critic
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -58,7 +57,7 @@ def test_reinforce() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = 'Pendulum-v0'
+    args.env_name = "Pendulum-v0"
     env_name = args.env_name
 
     # Create and wrap the environment
@@ -76,8 +75,8 @@ def test_reinforce() -> None:
             env.start_again()
             model.learn(int(6000), reset_num_timesteps=rep == 0)
 
-        plot_pendulum_policy(model.policy,env_init,deterministic=True)
-        plot_pendulum_critic(model.policy,env_init,deterministic=True)
+        plot_pendulum_policy(model.policy, env_init, deterministic=True)
+        plot_pendulum_critic(model.policy, env_init, deterministic=True)
     chrono.stop()
     plot_results(args)
 

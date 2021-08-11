@@ -7,11 +7,8 @@ class LossCallback(BaseCallback):
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(
-            self,
-            dir_name: Optional[str] = None,
-            file_name: Optional[str] = None,
-            verbose=0):
+
+    def __init__(self, dir_name: Optional[str] = None, file_name: Optional[str] = None, verbose=0):
         super(LossCallback, self).__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -34,7 +31,6 @@ class LossCallback(BaseCallback):
         self.policy_loss_file = open(policy_loss_name, "w")
         critic_loss_name = dir_name + "critic_loss_" + file_name + ".txt"
         self.critic_loss_file = open(critic_loss_name, "w")
-
 
     def _on_training_start(self) -> None:
         """
