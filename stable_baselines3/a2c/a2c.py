@@ -184,7 +184,7 @@ class A2C(OnPolicyAlgorithm):
         tb_log_name: str = "A2C",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "A2C":
+    ) -> "OnPolicyAlgorithm":
 
         return super(A2C, self).learn(
             total_timesteps=total_timesteps,

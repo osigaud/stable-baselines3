@@ -18,12 +18,6 @@ torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
 
-#env = gym.make('CartPoleContinuous-v0')
-
-# to see the list of available gym environments, type:
-# from gym import envs
-# print(envs.registry.all())
-
 def create_data_folders() -> None:
     """
     Create folders where to save output files if they are not already there
@@ -54,7 +48,7 @@ def set_files(study_name, env_name) -> Tuple[TextIO,TextIO]:
     return policy_loss_file, critic_loss_file
 
 
-def test_reinforce():
+def test_reinforce() -> None:
     args = get_args()
     print(args)
     create_data_folders()
@@ -65,27 +59,29 @@ def test_reinforce():
     plot_results(args)
 
 
-def test_monitor():
+def test_monitor() -> None:
     args = get_args()
     chrono = Chrono()
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
+    # args.env_name = 'CartPoleContinuous-v0'
     args.env_name = 'Pendulum-v0'
     env_name = args.env_name
 
-
     # Create and wrap the environment
-    env = gym.make(env_name)
+    env_init = gym.make(env_name)
     grads = args.gradients
     nb_repet = 5
     for i in range(len(grads)):
         file_name =  grads[i] + '_' + env_name
-        env = CustomMonitor(env, log_dir, file_name)
+        print(grads[i])
+        env = CustomMonitor(env_init, log_dir, file_name)
         model = A2C('MlpPolicy', env)
         for i in range(nb_repet):
-            model.learn(2000)
             env.start_again()
+            model.learn(2000)
+
 
     chrono.stop()
     plot_results(args)

@@ -254,7 +254,6 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             self.train()
 
         callback.on_training_end()
-
         return self
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:

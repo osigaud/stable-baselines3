@@ -50,10 +50,9 @@ class ContinuousCartPoleEnv(gym.Env):
         return [seed]
 
     def step(self, action):
-        assert not hasattr(action, "__len__"), 'action should be a scalar'
         state = self.state
         x, x_dot, theta, theta_dot = state
-        force = min(max(action, -1.0), 1.0)*self.force_max
+        force = min(max(action[0], -1.0), 1.0)*self.force_max
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)

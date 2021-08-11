@@ -216,7 +216,7 @@ class PGAlgorithm(BaseAlgorithm):
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
         n_eval_episodes: int = 5,
-        tb_log_name: str = "OnPolicyAlgorithm",
+        tb_log_name: str = "PGAlgorithm",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> "PGAlgorithm":
