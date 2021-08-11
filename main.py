@@ -14,6 +14,7 @@ from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
 from stable_baselines3.reinforce.custom_monitor import CustomMonitor
+from stable_baselines3.reinforce.loss_callback import LossCallback
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -69,14 +70,15 @@ def test_reinforce() -> None:
     for i in range(len(grads)):
         file_name = grads[i] + "_" + env_name
         print(grads[i])
+        lcb = LossCallback(log_dir, file_name)
         env = CustomMonitor(env_init, log_dir, file_name)
         model = REINFORCE("MlpPolicy", env, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
         for rep in range(nb_repet):
             env.start_again()
-            model.learn(int(6000), reset_num_timesteps=rep == 0)
+            model.learn(int(6000), reset_num_timesteps=rep == 0, callback=lcb)
 
-        plot_pendulum_policy(model.policy, env_init, deterministic=True)
-        plot_pendulum_critic(model.policy, env_init, deterministic=True)
+        # plot_pendulum_policy(model.policy, env_init, deterministic=True)
+        # plot_pendulum_critic(model.policy, env_init, deterministic=True)
     chrono.stop()
     plot_results(args)
 

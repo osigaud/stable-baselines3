@@ -1,5 +1,5 @@
 from stable_baselines3.common.callbacks import BaseCallback
-
+from typing import Any, Dict, List, Optional, TextIO, Tuple, Type, Union
 
 class LossCallback(BaseCallback):
     """
@@ -8,7 +8,12 @@ class LossCallback(BaseCallback):
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
 
-    def __init__(self, dir_name: Optional[str] = None, file_name: Optional[str] = None, verbose=0):
+    def __init__(
+            self,
+            dir_name: Optional[str] = None,
+            file_name: Optional[str] = None,
+            verbose=0
+    ):
         super(LossCallback, self).__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -67,10 +72,10 @@ class LossCallback(BaseCallback):
         """
         This event is triggered before exiting the `learn()` method.
         """
-        num = self.logger.name_to_value["train/num_episode"]
+        num = self.logger.name_to_value["train/n_updates"]
         policy_loss = self.logger.name_to_value["train/policy_loss"]
         critic_loss = self.logger.name_to_value["train/value_loss"]
-        self.policy_loss_file.write(num + " " + policy_loss + "\n")
-        self.critic_loss_file.write(num + " " + critic_loss + "\n")
+        self.policy_loss_file.write(str(num) + " " + str(policy_loss) + "\n")
+        self.critic_loss_file.write(str(num) + " " + str(critic_loss) + "\n")
         self.policy_loss_file.flush()
         self.critic_loss_file.flush()
