@@ -18,6 +18,7 @@ torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
 
+
 def create_data_folders() -> None:
     """
     Create folders where to save output files if they are not already there
@@ -34,7 +35,7 @@ def create_data_folders() -> None:
         os.mkdir('data/results/')
 
 
-def set_files(study_name, env_name) -> Tuple[TextIO,TextIO]:
+def set_files(study_name, env_name) -> Tuple[TextIO, TextIO]:
     """
     Create files to save the policy loss and the critic loss
     :param study_name: the name of the study
@@ -48,17 +49,6 @@ def set_files(study_name, env_name) -> Tuple[TextIO,TextIO]:
     return policy_loss_file, critic_loss_file
 
 
-def test_reinforce() -> None:
-    args = get_args()
-    print(args)
-    create_data_folders()
-    chrono = Chrono()
-
-    REINFORCE('MlpPolicy', 'CartPole-v1', args.gradients[0], args.beta, args.nb_rollouts, args.max_episode_steps).learn(100)
-    chrono.stop()
-    plot_results(args)
-
-
 def test_monitor() -> None:
     args = get_args()
     chrono = Chrono()
@@ -66,7 +56,6 @@ def test_monitor() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = 'CartPoleContinuous-v0'
-    args.env_name = 'Pendulum-v0'
     env_name = args.env_name
 
     # Create and wrap the environment
@@ -74,18 +63,17 @@ def test_monitor() -> None:
     grads = args.gradients
     nb_repet = 5
     for i in range(len(grads)):
-        file_name =  grads[i] + '_' + env_name
+        file_name = grads[i] + '_' + env_name
         print(grads[i])
         env = CustomMonitor(env_init, log_dir, file_name)
-        model = A2C('MlpPolicy', env)
-        for i in range(nb_repet):
+        model = REINFORCE('MlpPolicy', env_name, grads[i], args.beta, args.nb_rollouts, args.max_episode_steps).learn(100)
+        for rep in range(nb_repet):
             env.start_again()
             model.learn(2000)
-
 
     chrono.stop()
     plot_results(args)
 
+
 if __name__ == '__main__':
     test_monitor()
-
