@@ -190,3 +190,36 @@ def plot_policy_ND(policy, env, deterministic, plot=True, figname='stoch_actor.p
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
     final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
+
+
+def plot_pendulum_policy(policy, env, deterministic, plot=True, figname='actor.pdf', save_figure=True, definition=50) -> None:
+    """
+    Plot a policy for the Pendulum environment
+    :param policy: the policy to be plotted
+    :param env: the evaluation environment
+    :param deterministic: whether the deterministic version of the policy should be plotted
+    :param plot: whether the plot should be interactive
+    :param figname: the name of the file to save the figure
+    :param save_figure: whether the figure should be saved
+    :param definition: the resolution of the plot
+    :return: nothing
+    """
+    if env.observation_space.shape[0] <= 2:
+        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+
+    portrait = np.zeros((definition, definition))
+    state_min = env.observation_space.low
+    state_max = env.observation_space.high
+
+    for index_t, t in enumerate(np.linspace(-np.pi, np.pi, num=definition)):
+        for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
+            obs = np.array([[np.cos(t), np.sin(t), td]])
+            action, values, log_probs = policy.forward(obs, deterministic)
+            portrait[definition - (1 + index_td), index_t] = action
+    plt.figure(figsize=(10, 10))
+    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect='auto')
+    plt.colorbar(label="action")
+    # Add a point at the center
+    plt.scatter([0], [0])
+    x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')

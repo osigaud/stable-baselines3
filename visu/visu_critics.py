@@ -2,50 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from policies import GenericNet, PolicyWrapper
 from visu.visu_policies import final_show
-from environment import make_env
-
-
-def plot_critic_from_name(folder, file_name, policy) -> None:
-    """
-    Plot a critic from a file present into the given directory
-    A policy is given to plot Q(s,a) critic using this policy for a
-    :param folder: the given directory
-    :param file_name: the name of the file
-    :param policy: the given policy
-    :return: nothing
-    """
-    complete_name = folder + file_name
-    pw = PolicyWrapper(GenericNet(), "", "")
-    critic = pw.load(complete_name)
-    env_name = pw.env_name
-    env, discrete = make_env(env_name, ["x", "y"])
-    obs_size = env.observation_space.shape[0]
-    picture_name = file_name + '_portrait.pdf'
-    if not discrete:
-        if obs_size == 1:
-            plot_qfunction_1D(critic, env, plot=False, save_figure=True, figname=picture_name, foldername='/critics/')
-        else:
-            plot_qfunction_ND(critic, policy, env, plot=False, save_figure=True, figname=picture_name, foldername='/critics/')
-    else:
-        if obs_size == 2:
-            plot_vfunction_2D(critic, env, plot=False, save_figure=True, figname=picture_name, foldername='/critics/')
-        else:
-            plot_vfunction_ND(critic, env, plot=False, save_figure=True, figname=picture_name, foldername='/critics/')
-
-
-def plot_critics_from_directory(folder, policy) -> None:
-    """
-    Plot all the critics present into the given directory
-    A policy is given to plot Q(s,a) critic using this policy for a
-    :param folder: the given directory
-    :param policy: the given policy
-    :return: nothing
-    """
-    listdir = os.listdir(folder)
-    for critic_file in listdir:
-        plot_critic_from_name(folder, critic_file, policy)
 
 
 def plot_critic(simu, critic, policy, study, default_string, num):
@@ -300,3 +257,36 @@ def plot_qfunction_cont_act(qfunction, action, env, plot=True, figname="qfunctio
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
     final_show(save_figure, plot, figname, x_label, y_label, "Q Function or current policy", foldername)
+
+
+def plot_pendulum_critic(policy, env, deterministic, plot=True, figname='pendulum_critic.pdf', save_figure=True, definition=50) -> None:
+    """
+    Plot a critic for the Pendulum environment
+    :param policy: the policy to be plotted
+    :param env: the evaluation environment
+    :param deterministic: whether the deterministic version of the policy should be plotted
+    :param plot: whether the plot should be interactive
+    :param figname: the name of the file to save the figure
+    :param save_figure: whether the figure should be saved
+    :param definition: the resolution of the plot
+    :return: nothing
+    """
+    if env.observation_space.shape[0] <= 2:
+        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+
+    portrait = np.zeros((definition, definition))
+    state_min = env.observation_space.low
+    state_max = env.observation_space.high
+
+    for index_t, t in enumerate(np.linspace(-np.pi, np.pi, num=definition)):
+        for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
+            obs = np.array([[np.cos(t), np.sin(t), td]])
+            action, value, log_probs = policy.forward(obs, deterministic)
+            portrait[definition - (1 + index_td), index_t] = value
+    plt.figure(figsize=(10, 10))
+    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect='auto')
+    plt.colorbar(label="action")
+    # Add a point at the center
+    plt.scatter([0], [0])
+    x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
