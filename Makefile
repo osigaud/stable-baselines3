@@ -1,5 +1,5 @@
 SHELL=/bin/bash
-LINT_PATHS=stable_baselines3/ tests/ docs/conf.py setup.py my_gym/ *.py
+LINT_PATHS=stable_baselines3/ tests/ docs/conf.py setup.py my_gym/ *.py visu/
 
 pytest:
 	./scripts/run_tests.sh

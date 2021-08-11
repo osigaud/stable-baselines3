@@ -1,7 +1,8 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import random
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def final_show(save_figure, plot, figure_name, x_label, y_label, title, directory) -> None:
@@ -20,7 +21,7 @@ def final_show(save_figure, plot, figure_name, x_label, y_label, title, director
     plt.ylabel(y_label)
     plt.title(title)
     if save_figure:
-        directory = os.getcwd() + '/data' + directory
+        directory = os.getcwd() + "/data" + directory
         if not os.path.exists(directory):
             os.makedirs(directory)
         plt.savefig(directory + figure_name)
@@ -44,7 +45,7 @@ def plot_policy(policy, env, deterministic, name, study_name, default_string, nu
     :return: nothing
     """
     obs_size = env.observation_space.shape[0]
-    actor_picture_name = str(num) + '_actor_' + study_name + '_' + default_string + name + '.pdf'
+    actor_picture_name = str(num) + "_actor_" + study_name + "_" + default_string + name + ".pdf"
     if obs_size == 1:
         plot_policy_1D(policy, env, deterministic, plot, figname=actor_picture_name)
     elif obs_size == 2:
@@ -66,7 +67,7 @@ def plot_policy_1D(policy, env, deterministic, plot=True, figname="policy_1D.pdf
     :return: nothing
     """
     if env.observation_space.shape[0] != 1:
-        raise(ValueError("The observation space dimension is {}, should be 1".format(env.observation_space.shape[0])))
+        raise (ValueError("The observation space dimension is {}, should be 1".format(env.observation_space.shape[0])))
 
     x_min = env.observation_space.low[0]
     x_max = env.observation_space.high[0]
@@ -82,10 +83,10 @@ def plot_policy_1D(policy, env, deterministic, plot=True, figname="policy_1D.pdf
     plt.figure(figsize=(10, 10))
     plt.plot(states, actions)
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "1D Policy", '/plots/')
+    final_show(save_figure, plot, figname, x_label, y_label, "1D Policy", "/plots/")
 
 
-def plot_policy_2D(policy, env, deterministic, plot=True, figname='stoch_actor.pdf', save_figure=True, definition=50) -> None:
+def plot_policy_2D(policy, env, deterministic, plot=True, figname="stoch_actor.pdf", save_figure=True, definition=50) -> None:
     """
     Plot a policy for a 2D environment like continuous mountain car
     :param policy: the policy to be plotted
@@ -98,7 +99,7 @@ def plot_policy_2D(policy, env, deterministic, plot=True, figname='stoch_actor.p
     :return: nothing
     """
     if env.observation_space.shape[0] != 2:
-        raise(ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
@@ -113,15 +114,15 @@ def plot_policy_2D(policy, env, deterministic, plot=True, figname='stoch_actor.p
                 action = action[0]
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
 
 
-def plot_bernoulli_policy(policy, env, plot=True, figure_name='proba_actor.pdf', save_figure=True, definition=50) -> None:
+def plot_bernoulli_policy(policy, env, plot=True, figure_name="proba_actor.pdf", save_figure=True, definition=50) -> None:
     """
     Plot the underlying thresholds of a Bernoulli policy for a 2D environment like continuous mountain car.
     :param policy: the policy to be plotted
@@ -133,7 +134,7 @@ def plot_bernoulli_policy(policy, env, plot=True, figure_name='proba_actor.pdf',
     :return: nothing
     """
     if env.observation_space.shape[0] != 2:
-        raise(ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
@@ -147,15 +148,15 @@ def plot_bernoulli_policy(policy, env, plot=True, figure_name='proba_actor.pdf',
             action = probs.data.numpy().astype(float)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figure_name, x_label, y_label, "Actor phase portrait", '/plots/')
+    final_show(save_figure, plot, figure_name, x_label, y_label, "Actor phase portrait", "/plots/")
 
 
-def plot_policy_ND(policy, env, deterministic, plot=True, figname='stoch_actor.pdf', save_figure=True, definition=50) -> None:
+def plot_policy_ND(policy, env, deterministic, plot=True, figname="stoch_actor.pdf", save_figure=True, definition=50) -> None:
     """
     Plot a policy for a ND environment like pendulum or cartpole
     :param policy: the policy to be plotted
@@ -168,7 +169,7 @@ def plot_policy_ND(policy, env, deterministic, plot=True, figname='stoch_actor.p
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
-        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
@@ -184,15 +185,15 @@ def plot_policy_ND(policy, env, deterministic, plot=True, figname='stoch_actor.p
             action = policy.select_action(state, deterministic)
             portrait[definition - (1 + index_y), index_x] = action[0]
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
 
 
-def plot_pendulum_policy(policy, env, deterministic, plot=True, figname='actor.pdf', save_figure=True, definition=50) -> None:
+def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="actor.pdf", save_figure=True, definition=50) -> None:
     """
     Plot a policy for the Pendulum environment
     :param policy: the policy to be plotted
@@ -205,7 +206,7 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname='actor.p
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
-        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
@@ -217,9 +218,9 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname='actor.p
             action, _ = policy.predict(obs, deterministic)
             portrait[definition - (1 + index_td), index_t] = action
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")

@@ -1,8 +1,12 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import random
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch as th
 from visu.visu_policies import final_show
+
+from stable_baselines3.common.utils import obs_as_tensor
 
 
 def plot_critic(simu, critic, policy, study, default_string, num):
@@ -17,25 +21,27 @@ def plot_critic(simu, critic, policy, study, default_string, num):
     :param num: a number to plot several critics from the same configuration
     :return: nothing
     """
-    picturename = str(num) + '_critic_' + study + default_string + simu.env_name + '.pdf'
+    picturename = str(num) + "_critic_" + study + default_string + simu.env_name + ".pdf"
     env = simu.env
     obs_size = simu.obs_size
     if not simu.discrete:
         if obs_size == 1:
-            plot_qfunction_1D(critic, env, plot=False, save_figure=True, figname=picturename, foldername='/plots/')
+            plot_qfunction_1D(critic, env, plot=False, save_figure=True, figname=picturename, foldername="/plots/")
         elif obs_size == 2:
-            plot_qfunction_2D(critic, policy, env, plot=False, save_figure=True, figname=picturename, foldername='/plots/')
+            plot_qfunction_2D(critic, policy, env, plot=False, save_figure=True, figname=picturename, foldername="/plots/")
         else:
-            plot_qfunction_ND(critic, policy, env, plot=False, save_figure=True, figname=picturename, foldername='/plots/')
+            plot_qfunction_ND(critic, policy, env, plot=False, save_figure=True, figname=picturename, foldername="/plots/")
     else:
         if obs_size == 2:
-            plot_vfunction_2D(critic, env, plot=False, save_figure=True, figname=picturename, foldername='/plots/')
+            plot_vfunction_2D(critic, env, plot=False, save_figure=True, figname=picturename, foldername="/plots/")
         else:
-            plot_vfunction_ND(critic, env, plot=False, save_figure=True, figname=picturename, foldername='/plots/')
+            plot_vfunction_ND(critic, env, plot=False, save_figure=True, figname=picturename, foldername="/plots/")
 
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
-def plot_vfunction_2D(vfunction, env, plot=True, figname="vfunction.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_vfunction_2D(
+    vfunction, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a value function in a 2-dimensional state space
     :param vfunction: the value function to be plotted
@@ -48,7 +54,7 @@ def plot_vfunction_2D(vfunction, env, plot=True, figname="vfunction.pdf", folder
     :return: nothing
     """
     if env.observation_space.shape[0] != 2:
-        raise(ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
@@ -60,7 +66,7 @@ def plot_vfunction_2D(vfunction, env, plot=True, figname="vfunction.pdf", folder
             portrait[definition - (1 + index_y), index_x] = vfunction.evaluate(np.array([[x, y]]))
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -69,7 +75,9 @@ def plot_vfunction_2D(vfunction, env, plot=True, figname="vfunction.pdf", folder
 
 
 # visualization of the V function for a ND environment like cartpole. The action does not matter.
-def plot_vfunction_ND(vfunction, env, plot=True, figname="vfunction.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_vfunction_ND(
+    vfunction, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a value function in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -84,7 +92,7 @@ def plot_vfunction_ND(vfunction, env, plot=True, figname="vfunction.pdf", folder
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
-        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
@@ -99,7 +107,7 @@ def plot_vfunction_ND(vfunction, env, plot=True, figname="vfunction.pdf", folder
             portrait[definition - (1 + index_y), index_x] = vfunction.evaluate(state)
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -108,7 +116,9 @@ def plot_vfunction_ND(vfunction, env, plot=True, figname="vfunction.pdf", folder
 
 
 # visualization of the Q function for a 1D environment like 1D Toy with continuous actions
-def plot_qfunction_1D(qfunction, env, plot=True, figname="qfunction_1D.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_qfunction_1D(
+    qfunction, env, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a q function in a 1-dimensional state space. The second dimension covers the whole action space
     :param qfunction: the action value function to be plotted
@@ -121,7 +131,7 @@ def plot_qfunction_1D(qfunction, env, plot=True, figname="qfunction_1D.pdf", fol
     :return: nothing
     """
     if env.observation_space.shape[0] != 1:
-        raise(ValueError("The observation space dimension is {}, should be 1".format(env.observation_space.shape[0])))
+        raise (ValueError("The observation space dimension is {}, should be 1".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     x_min = env.observation_space.low[0]
@@ -135,7 +145,7 @@ def plot_qfunction_1D(qfunction, env, plot=True, figname="qfunction_1D.pdf", fol
             portrait[definition - (1 + index_y), index_x] = qfunction.evaluate(np.array([x]), [y])
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -145,7 +155,9 @@ def plot_qfunction_1D(qfunction, env, plot=True, figname="qfunction_1D.pdf", fol
 
 # visualization of the Q function for a 2D environment like continuous mountain car.
 # The action is the one from the policy sent as parameter
-def plot_qfunction_2D(qfunction, policy, env, plot=True, figname="qfunction_cont.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_qfunction_2D(
+    qfunction, policy, env, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a q function in a 2-dimensional state space using a given policy to chose an action everywhere in the state space
     :param qfunction: the action value function to be plotted
@@ -160,7 +172,9 @@ def plot_qfunction_2D(qfunction, policy, env, plot=True, figname="qfunction_cont
     :return: nothing
     """
     if env.observation_space.shape[0] != 2:
-        raise(ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0])))
+        raise (
+            ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0]))
+        )
 
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
@@ -173,7 +187,7 @@ def plot_qfunction_2D(qfunction, policy, env, plot=True, figname="qfunction_cont
             portrait[definition - (1 + index_y), index_x] = qfunction.evaluate(state, action)
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -183,7 +197,9 @@ def plot_qfunction_2D(qfunction, policy, env, plot=True, figname="qfunction_cont
 
 # visualization of the Q function for a ND environment like continuous cart pole.
 # The action is the one from the policy sent as parameter
-def plot_qfunction_ND(qfunction, policy, env, plot=True, figname="qfunction_cont.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_qfunction_ND(
+    qfunction, policy, env, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a q function in a N-dimensional state space using a given policy to chose an action everywhere in the state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -199,7 +215,7 @@ def plot_qfunction_ND(qfunction, policy, env, plot=True, figname="qfunction_cont
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
-        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
@@ -215,7 +231,7 @@ def plot_qfunction_ND(qfunction, policy, env, plot=True, figname="qfunction_cont
             portrait[definition - (1 + index_y), index_x] = qfunction.evaluate(state, action)
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -225,7 +241,9 @@ def plot_qfunction_ND(qfunction, policy, env, plot=True, figname="qfunction_cont
 
 # visualization of the Q function for a 2D environment like continuous mountain car.
 # The action is given as parameter
-def plot_qfunction_cont_act(qfunction, action, env, plot=True, figname="qfunction_cont.pdf", foldername='/plots/', save_figure=True, definition=50) -> None:
+def plot_qfunction_cont_act(
+    qfunction, action, env, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True, definition=50
+) -> None:
     """
     Plot a q function using the same action everywhere in the state space
     :param qfunction: the action value function to be plotted
@@ -239,7 +257,9 @@ def plot_qfunction_cont_act(qfunction, action, env, plot=True, figname="qfunctio
     :return: nothing
     """
     if env.observation_space.shape[0] < 2:
-        raise(ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0])))
+        raise (
+            ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0]))
+        )
 
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
@@ -251,7 +271,7 @@ def plot_qfunction_cont_act(qfunction, action, env, plot=True, figname="qfunctio
             portrait[definition - (1 + index_y), index_x] = qfunction.evaluate(state, action)
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
     plt.colorbar(label="critic value")
     # Add a point at the center
     plt.scatter([0], [0])
@@ -259,7 +279,9 @@ def plot_qfunction_cont_act(qfunction, action, env, plot=True, figname="qfunctio
     final_show(save_figure, plot, figname, x_label, y_label, "Q Function or current policy", foldername)
 
 
-def plot_pendulum_critic(policy, env, deterministic, plot=True, figname='pendulum_critic.pdf', save_figure=True, definition=50) -> None:
+def plot_pendulum_critic(
+    policy, env, deterministic, plot=True, figname="pendulum_critic.pdf", save_figure=True, definition=50
+) -> None:
     """
     Plot a critic for the Pendulum environment
     :param policy: the policy to be plotted
@@ -272,7 +294,7 @@ def plot_pendulum_critic(policy, env, deterministic, plot=True, figname='pendulu
     :return: nothing
     """
     if env.observation_space.shape[0] <= 2:
-        raise(ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
 
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
@@ -281,12 +303,13 @@ def plot_pendulum_critic(policy, env, deterministic, plot=True, figname='pendulu
     for index_t, t in enumerate(np.linspace(-np.pi, np.pi, num=definition)):
         for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
             obs = np.array([[np.cos(t), np.sin(t), td]])
-            action, value, log_probs = policy.forward(obs, deterministic)
-            portrait[definition - (1 + index_td), index_t] = value
+            with th.no_grad():
+                action, value, log_probs = policy.forward(obs_as_tensor(obs), deterministic)
+            portrait[definition - (1 + index_td), index_t] = value.item()
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect='auto')
+    plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", '/plots/')
+    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")

@@ -1,10 +1,12 @@
 import os
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
 import random
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from policies import GenericNet, PolicyWrapper
 from visu.visu_policies import final_show
+
 
 # The two functions below are not generic
 def random_cartpole_state():
@@ -35,10 +37,10 @@ def random_state_vector(env_name):
     :param env_name:
     :return: a vector of random states
     """
-    assert env_name in ['CartPoleContinuous-v0', 'MountainCarContinuous-v0'], 'unsupported environment'
+    assert env_name in ["CartPoleContinuous-v0", "MountainCarContinuous-v0"], "unsupported environment"
     random_states = []
     for i in range(2000):
-        if env_name == 'CartPoleContinuous-v0':
+        if env_name == "CartPoleContinuous-v0":
             random_states.append(random_cartpole_state())
         else:
             random_states.append(random_mountaincar_state())
@@ -78,9 +80,10 @@ def get_normal_sample(policy, env_name):
         stds.append(std)
     return mus, stds
 
+
 def plot_normal_histograms(policy, nb, env_name) -> None:
     """
-    
+
     :param policy: the policy network
     :param nb: a number to allow several such plots through repeated epochs
     :param env_name: the name of the environment
@@ -95,10 +98,11 @@ def plot_normal_histograms(policy, nb, env_name) -> None:
     bins_mus = np.arange(mus.min(), mus.max() + bar_width, bar_width)
     bins_stds = np.arange(stds.min(), stds.max() + bar_width, bar_width)
     plt.hist(mus, bins=bins_mus)
-    final_show(True, False, 'dispersion_mu_' + str(nb) + '.pdf', "mu", "count", "dispersion mu", '/results/')
+    final_show(True, False, "dispersion_mu_" + str(nb) + ".pdf", "mu", "count", "dispersion mu", "/results/")
 
     plt.hist(stds, bins=bins_stds)
-    final_show(True, False, 'dispersion_std_' + str(nb) + '.pdf', "variance", "count", "dispersion variance", '/results/')
+    final_show(True, False, "dispersion_std_" + str(nb) + ".pdf", "variance", "count", "dispersion variance", "/results/")
+
 
 def plot_weight_histograms(policy, nb, env_name) -> None:
     """
@@ -113,4 +117,6 @@ def plot_weight_histograms(policy, nb, env_name) -> None:
     bar_width = 0.0005
     bins = np.arange(probas.min(), probas.max() + bar_width, bar_width)
     plt.hist(probas, bins=bins)
-    final_show(True, False, 'dispersion_' + str(nb) + '.pdf', "decision threshold", "count", "decision dispersion", '/results/')
+    final_show(
+        True, False, "dispersion_" + str(nb) + ".pdf", "decision threshold", "count", "decision dispersion", "/results/"
+    )
