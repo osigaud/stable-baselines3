@@ -252,7 +252,6 @@ class PGAlgorithm(BaseAlgorithm):
                 self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
                 self.logger.dump(step=self.num_timesteps)
-
             self.train()
 
         callback.on_training_end()
