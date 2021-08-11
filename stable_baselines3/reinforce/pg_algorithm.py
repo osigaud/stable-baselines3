@@ -96,6 +96,7 @@ class PGAlgorithm(BaseAlgorithm):
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_buffer = None
+        self.num_episode = 0
 
         if _init_setup_model:
             self._setup_model()
@@ -130,6 +131,9 @@ class PGAlgorithm(BaseAlgorithm):
             **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
+
+    def reset_episodes(self):
+        self.num_episode = 0
 
     def collect_rollouts(
         self,
@@ -185,7 +189,13 @@ class PGAlgorithm(BaseAlgorithm):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 
+            old_episode_idx = rollout_buffer.n_episodes_stored
             rollout_buffer.add(self._last_obs, actions, rewards, dones, self._last_episode_starts, infos)
+            new_episode_idx = rollout_buffer.n_episodes_stored
+            if new_episode_idx > old_episode_idx:
+                self.num_episode += 1
+                print("OK episode:", self.num_episode)
+                self.logger.record("time/episode", self.num_episode, exclude="tensorboard")
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
@@ -233,7 +243,6 @@ class PGAlgorithm(BaseAlgorithm):
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_timesteps:
-
             keep_training = self.collect_rollouts(self.env, callback, self.rollout_buffer)
 
             if keep_training is False:

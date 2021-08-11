@@ -66,16 +66,16 @@ class LossCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        pass
-
-    def _on_training_end(self) -> None:
-        """
-        This event is triggered before exiting the `learn()` method.
-        """
-        num = self.logger.name_to_value["train/n_updates"]
+        num = self.logger.name_to_value["time/episode"]
         policy_loss = self.logger.name_to_value["train/policy_loss"]
         critic_loss = self.logger.name_to_value["train/value_loss"]
         self.policy_loss_file.write(str(num) + " " + str(policy_loss) + "\n")
         self.critic_loss_file.write(str(num) + " " + str(critic_loss) + "\n")
         self.policy_loss_file.flush()
         self.critic_loss_file.flush()
+
+    def _on_training_end(self) -> None:
+        """
+        This event is triggered before exiting the `learn()` method.
+        """
+        pass

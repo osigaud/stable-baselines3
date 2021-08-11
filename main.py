@@ -75,6 +75,7 @@ def test_reinforce() -> None:
         model = REINFORCE("MlpPolicy", env, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
         for rep in range(nb_repet):
             env.start_again()
+            model.reset_episodes()
             model.learn(int(6000), reset_num_timesteps=rep == 0, callback=lcb)
 
         # plot_pendulum_policy(model.policy, env_init, deterministic=True)

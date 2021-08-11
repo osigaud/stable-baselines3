@@ -80,7 +80,7 @@ def exploit_critic_loss_full(params) -> None:
     for i in range(len(study)):
         plot_data(path + "/critic_loss_" + study[i] + "_" + params.env_name + ".txt", "critic loss " + study[i])
 
-    plt.xlabel("Cycles")
+    plt.xlabel("Episodes")
     plt.ylabel("Loss")
     plt.legend(loc="upper right")
     plt.title(params.env_name)
@@ -94,7 +94,7 @@ def exploit_policy_loss_full(params) -> None:
     for i in range(len(study)):
         plot_data(path + "/policy_loss_" + study[i] + "_" + params.env_name + ".txt", "policy loss " + study[i])
 
-    plt.xlabel("Cycles")
+    plt.xlabel("Episodes")
     plt.ylabel("Loss")
     plt.legend(loc="lower right")
     plt.title(params.env_name)
