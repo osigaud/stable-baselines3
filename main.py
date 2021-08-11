@@ -66,7 +66,8 @@ def test_monitor() -> None:
         file_name = grads[i] + '_' + env_name
         print(grads[i])
         env = CustomMonitor(env_init, log_dir, file_name)
-        model = REINFORCE('MlpPolicy', env_name, grads[i], args.beta, args.nb_rollouts, args.max_episode_steps).learn(100)
+        model = REINFORCE('MlpPolicy', env_name, grads[i], args.beta, args.nb_rollouts, args.max_episode_steps, seed=1,
+        verbose=1)
         for rep in range(nb_repet):
             env.start_again()
             model.learn(2000)

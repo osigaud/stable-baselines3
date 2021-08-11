@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Type, Union
 import numpy as np
 import torch as th
 from gym import spaces
+from progress.bar import Bar
 
 from stable_baselines3.common import logger
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm
@@ -145,7 +146,7 @@ class CEM(BaseAlgorithm):
         # Init the rng
         rng = np.random.default_rng()
         # Training Loop
-        with SlowBar("Performing a repetition of CEM", max=params.nb_cycles) as bar:  # pytype: disable=name-error
+        with Bar("Performing a repetition of CEM", max=params.nb_cycles) as bar:  # pytype: disable=name-error
             for cycle in range(params.nb_cycles):
                 rewards = np.zeros(params.population)
                 weights = rng.multivariate_normal(centroid, var, params.population)

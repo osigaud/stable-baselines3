@@ -287,7 +287,8 @@ class EpisodicBuffer(BaseBuffer):
         :return: nothing
         """
         for ep in range(self.nb_rollouts):
-            self.returns[ep] = self._buffer["reward"][ep] - self.values[ep]
+            for i in range(self.episode_lengths[ep]):
+                self.returns[ep][i] = self._buffer["reward"][ep][i] - self.values[ep][i]
 
     def n_step_return(self) -> None:
         """
@@ -313,9 +314,9 @@ class EpisodicBuffer(BaseBuffer):
         """
         reward_mean = 0
         reward_pool = []
+        self.sum_rewards()
         for ep in range(self.nb_rollouts):
-            self.sum_rewards()
-            reward_pool += self.returns[ep]
+            reward_pool += self.returns[ep][0]
         reward_std = np.std(reward_pool)
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
@@ -332,9 +333,10 @@ class EpisodicBuffer(BaseBuffer):
         """
         reward_mean = 0
         reward_pool = []
+        self.discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
-            self.discounted_sum_rewards()
-            reward_pool += self.returns[ep]
+            for i in range(self.episode_lengths[ep]):
+                reward_pool += self.returns[ep][i]
         reward_std = np.std(reward_pool)
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
@@ -351,4 +353,5 @@ class EpisodicBuffer(BaseBuffer):
         :param beta: the exponentiation factor
         """
         for ep in range(self.nb_rollouts):
-            self.returns[ep] = math.exp(self._buffer["reward"][ep] / beta)
+            for i in range(self.episode_lengths[ep]):
+                self.returns[ep][i] = math.exp(self._buffer["reward"][ep][i] / beta)
