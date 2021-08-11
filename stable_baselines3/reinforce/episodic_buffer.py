@@ -1,4 +1,3 @@
-import math
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -82,21 +81,21 @@ class EpisodicBuffer(BaseBuffer):
         # episode length storage, needed for episodes which has less steps than the maximum length
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
+        assert self.n_envs == 1, "Episode buffer only support single env for now"
+
         self.advantages = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-
-        assert self.n_envs == 1, "Episode buffer only support single env for now"
+        # TODO: properly handle timeouts?
+        self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
 
         # input dimensions for buffer initialization
-        # TODO: properly handle timeouts?
         self.input_shape = {
             "observation": (self.n_envs,) + self.obs_shape,
             "action": (self.action_dim,),
-            # "next_obs": (self.n_envs,) + self.obs_shape,
-            "done": (1,),
         }
         self._buffer = {
             key: np.zeros((self.nb_rollouts, self.max_episode_steps, *dim), dtype=np.float32)
@@ -109,13 +108,15 @@ class EpisodicBuffer(BaseBuffer):
         obs: Dict[str, np.ndarray],
         action: np.ndarray,
         reward: np.ndarray,
+        episode_start: np.ndarray,
         done: np.ndarray,
         infos: List[Dict[str, Any]],
     ) -> None:
 
         self._buffer["observation"][self.episode_idx][self.current_idx] = obs
         self._buffer["action"][self.episode_idx][self.current_idx] = action
-        self._buffer["done"][self.episode_idx][self.current_idx] = done
+        self.dones[self.episode_idx][self.current_idx] = done
+        self.episode_starts[self.episode_idx][self.current_idx] = episode_start
         self.rewards[self.episode_idx][self.current_idx] = reward
 
         # update current pointer
@@ -239,12 +240,15 @@ class EpisodicBuffer(BaseBuffer):
         last_gae_lam = 0
         for ep in range(self.nb_rollouts):
             for step in reversed(range(self.episode_lengths[ep])):
-                if step == self.episode_lengths[ep]:
-                    delta = self.rewards[ep][step] + self.gamma * last_values - self.values[ep][step]
+                if step == self.episode_lengths[ep] - 1:
+                    # delta = self.rewards[ep, step] + self.gamma * last_values - self.values[ep, step]
+                    # Episodic setting: last step is always terminal
+                    # and we are not handling timeout separately yet
+                    delta = self.rewards[ep, step] - self.values[ep, step]
                 else:
-                    delta = self.rewards[ep][step] + self.gamma * self.values[ep][step + 1] - self.values[ep][step]
+                    delta = self.rewards[ep, step] + self.gamma * self.values[ep, step + 1] - self.values[ep, step]
                 last_gae_lam = delta + self.gamma * self.gae_lambda * last_gae_lam
-                self.advantages[ep][step] = last_gae_lam
+                self.advantages[ep, step] = last_gae_lam
             # TD(lambda) estimator, see Github PR #375 or "Telescoping in TD(lambda)"
             # in David Silver Lecture 4: https://www.youtube.com/watch?v=PnHCvfgC_ZA
             self.returns[ep] = self.advantages[ep] + self.values[ep]
@@ -257,8 +261,8 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             summ = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self.rewards[ep][i]
-                self.returns[ep][i] = summ
+                summ = summ * self.gamma + self.rewards[ep, i]
+                self.returns[ep, i] = summ
 
     def sum_rewards(self) -> None:
         """
@@ -274,7 +278,7 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep][i] = self.rewards[ep][i] - self.values[ep][i]
+                self.returns[ep, i] = self.rewards[ep, i] - self.values[ep, i]
 
     def n_step_return(self) -> None:
         """
@@ -284,15 +288,15 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
                 horizon = i + self.n_steps
-                summ = self.rewards[ep][i]
+                summ = self.rewards[ep, i]
                 if horizon < self.episode_lengths[ep]:
-                    bootstrap_val = self.values[ep][horizon]
+                    bootstrap_val = self.values[ep, horizon]
                     summ += self.gamma ** self.n_steps * bootstrap_val
                 for j in range(1, self.n_steps):
                     if i + j >= self.episode_lengths[ep]:
                         break
-                    summ += self.gamma ** j * self.rewards[ep][i + j]
-                self.returns[ep][i] = summ
+                    summ += self.gamma ** j * self.rewards[ep, i + j]
+                self.returns[ep, i] = summ
 
     def normalize_rewards(self) -> None:
         """
@@ -302,17 +306,17 @@ class EpisodicBuffer(BaseBuffer):
         reward_pool = []
         self.sum_rewards()
         for ep in range(self.nb_rollouts):
-            reward_pool.append(self.returns[ep][0])
+            reward_pool.append(self.returns[ep, 0])
         reward_std = np.std(reward_pool)
 
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
             # print("normalize_rewards : ", reward_std, "mean=", reward_mean)
         for ep in range(self.nb_rollouts):
-            summ = 0
+            discounted_sum = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self.rewards[ep][i]
-                self.returns[ep][i] = (summ - reward_mean) / (reward_std + 1e-6)
+                discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
+                self.returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
 
     def normalize_discounted_rewards(self) -> None:
         """
@@ -323,16 +327,16 @@ class EpisodicBuffer(BaseBuffer):
         self.discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                reward_pool += self.returns[ep][i]
+                reward_pool.append(self.returns[ep, i])
         reward_std = np.std(reward_pool)
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
             # print("normalize_rewards : ", reward_std, "mean=", reward_mean)
         for ep in range(self.nb_rollouts):
-            summ = 0
+            discounted_sum = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self.rewards[ep][i]
-                self.returns[ep][i] = (summ - reward_mean) / (reward_std + 1e-6)
+                discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
+                self.returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
 
     def exponentiate_rewards(self, beta) -> None:
         """
@@ -341,4 +345,4 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep][i] = math.exp(self.rewards[ep][i] / beta)
+                self.returns[ep, i] = np.exp(self.rewards[ep, i] / beta)
