@@ -68,10 +68,10 @@ def test_reinforce() -> None:
         file_name = grads[i] + "_" + env_name
         print(grads[i])
         env = CustomMonitor(env_init, log_dir, file_name)
-        model = REINFORCE("MlpPolicy", env_name, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
+        model = REINFORCE("MlpPolicy", env, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
         for rep in range(nb_repet):
             env.start_again()
-            model.learn(int(1e5), reset_num_timesteps=rep == 0)
+            model.learn(int(6000), reset_num_timesteps=rep == 0)
 
     chrono.stop()
     plot_results(args)

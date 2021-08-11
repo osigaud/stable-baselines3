@@ -235,7 +235,7 @@ class EpisodicBuffer(BaseBuffer):
 
         """
         # Convert to numpy
-        last_values = last_values.clone().cpu().numpy().flatten()
+        # last_values = last_values.clone().cpu().numpy().flatten()
 
         last_gae_lam = 0
         for ep in range(self.nb_rollouts):
