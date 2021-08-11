@@ -121,7 +121,6 @@ class PGAlgorithm(BaseAlgorithm):
             self.beta,
             self.nb_rollouts,
             max_episode_steps=max_episode_steps,
-            handle_timeout_termination=True,
         )
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
             self.observation_space,

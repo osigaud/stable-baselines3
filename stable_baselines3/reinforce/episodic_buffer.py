@@ -33,7 +33,6 @@ class EpisodicBuffer(BaseBuffer):
     :param gradient_name: name of the type of gradient
     :param nb_rollouts: Number of rollouts to fill the buffer
     :param max_episode_steps: Maximum length of an episode
-    :param handle_timeout_termination: Whether should care about time limits or not
     """
 
     def __init__(
@@ -49,7 +48,6 @@ class EpisodicBuffer(BaseBuffer):
         beta: float = 1.0,
         nb_rollouts: int = 1,
         max_episode_steps: int = 1,
-        handle_timeout_termination: bool = True,
     ):
         print(nb_rollouts)
         print(max_episode_steps)
@@ -62,8 +60,6 @@ class EpisodicBuffer(BaseBuffer):
         self.n_steps = n_steps
         self.gamma = gamma
         self.beta = beta
-        self.generator_ready = False
-        self.handle_timeout_termination = handle_timeout_termination
         # maximum steps in episode
         self.max_episode_steps = max_episode_steps
         self.current_idx = 0
@@ -94,12 +90,13 @@ class EpisodicBuffer(BaseBuffer):
         assert self.n_envs == 1, "Episode buffer only support single env for now"
 
         # input dimensions for buffer initialization
+        # TODO: properly handle timeouts?
         self.input_shape = {
             "observation": (self.n_envs,) + self.obs_shape,
             "action": (self.action_dim,),
             "reward": (1,),
-            "next_obs": (self.n_envs,) + self.obs_shape,
-            "done": (1,),  # timeout is handled when storing the episode
+            # "next_obs": (self.n_envs,) + self.obs_shape,
+            "done": (1,),
         }
         self._buffer = {
             key: np.zeros((self.nb_rollouts, self.max_episode_steps, *dim), dtype=np.float32)
@@ -116,15 +113,9 @@ class EpisodicBuffer(BaseBuffer):
         infos: List[Dict[str, Any]],
     ) -> None:
 
-        # Remove termination signals due to timeout
-        if self.handle_timeout_termination:
-            done_ = done * (1 - np.array([info.get("TimeLimit.truncated", False) for info in infos]))
-        else:
-            done_ = done
-
         self._buffer["observation"][self.episode_idx][self.current_idx] = obs
         self._buffer["action"][self.episode_idx][self.current_idx] = action
-        self._buffer["done"][self.episode_idx][self.current_idx] = done_
+        self._buffer["done"][self.episode_idx][self.current_idx] = done
         self._buffer["reward"][self.episode_idx][self.current_idx] = reward
 
         # update current pointer
@@ -138,12 +129,10 @@ class EpisodicBuffer(BaseBuffer):
     def get_samples(self) -> RolloutBufferSamples:
         assert self.full, "digging into a non full batch"
 
-        n_steps = sum(self.episode_lengths)
-        total_steps = self.nb_rollouts * n_steps
-        all_transitions = np.array([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
-        all_episodes = np.array([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
+        total_steps = sum(self.episode_lengths)
+        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
+        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
         all_episodes = all_episodes.astype(np.uint64)
-
         # Retrieve all transition and flatten the arrays
         return RolloutBufferSamples(
             self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
