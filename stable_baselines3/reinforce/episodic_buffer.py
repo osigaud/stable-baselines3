@@ -86,6 +86,7 @@ class EpisodicBuffer(BaseBuffer):
         self.returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
 
         assert self.n_envs == 1, "Episode buffer only support single env for now"
 
@@ -94,7 +95,6 @@ class EpisodicBuffer(BaseBuffer):
         self.input_shape = {
             "observation": (self.n_envs,) + self.obs_shape,
             "action": (self.action_dim,),
-            "reward": (1,),
             # "next_obs": (self.n_envs,) + self.obs_shape,
             "done": (1,),
         }
@@ -116,7 +116,7 @@ class EpisodicBuffer(BaseBuffer):
         self._buffer["observation"][self.episode_idx][self.current_idx] = obs
         self._buffer["action"][self.episode_idx][self.current_idx] = action
         self._buffer["done"][self.episode_idx][self.current_idx] = done
-        self._buffer["reward"][self.episode_idx][self.current_idx] = reward
+        self.rewards[self.episode_idx][self.current_idx] = reward
 
         # update current pointer
         self.current_idx += 1
@@ -240,9 +240,9 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             for step in reversed(range(self.episode_lengths[ep])):
                 if step == self.episode_lengths[ep]:
-                    delta = self._buffer["reward"][ep][step] + self.gamma * last_values - self.values[ep][step]
+                    delta = self.rewards[ep][step] + self.gamma * last_values - self.values[ep][step]
                 else:
-                    delta = self._buffer["reward"][ep][step] + self.gamma * self.values[ep][step + 1] - self.values[ep][step]
+                    delta = self.rewards[ep][step] + self.gamma * self.values[ep][step + 1] - self.values[ep][step]
                 last_gae_lam = delta + self.gamma * self.gae_lambda * last_gae_lam
                 self.advantages[ep][step] = last_gae_lam
             # TD(lambda) estimator, see Github PR #375 or "Telescoping in TD(lambda)"
@@ -257,18 +257,15 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             summ = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self._buffer["reward"][ep][i]
+                summ = summ * self.gamma + self.rewards[ep][i]
                 self.returns[ep][i] = summ
 
     def sum_rewards(self) -> None:
         """
         Apply a sum of rewards to all samples of all episodes
-        :return: nothing
         """
         for ep in range(self.nb_rollouts):
-            summ = np.sum(self._buffer["reward"][ep])
-            for i in reversed(range(self.episode_lengths[ep])):
-                self.returns[ep][i] = summ
+            self.returns[ep, :] = np.sum(self.rewards[ep])
 
     def subtract_baseline(self) -> None:
         """
@@ -277,7 +274,7 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep][i] = self._buffer["reward"][ep][i] - self.values[ep][i]
+                self.returns[ep][i] = self.rewards[ep][i] - self.values[ep][i]
 
     def n_step_return(self) -> None:
         """
@@ -287,14 +284,14 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
                 horizon = i + self.n_steps
-                summ = self._buffer["reward"][ep][i]
+                summ = self.rewards[ep][i]
                 if horizon < self.episode_lengths[ep]:
                     bootstrap_val = self.values[ep][horizon]
                     summ += self.gamma ** self.n_steps * bootstrap_val
                 for j in range(1, self.n_steps):
                     if i + j >= self.episode_lengths[ep]:
                         break
-                    summ += self.gamma ** j * self._buffer["reward"][ep][i + j]
+                    summ += self.gamma ** j * self.rewards[ep][i + j]
                 self.returns[ep][i] = summ
 
     def normalize_rewards(self) -> None:
@@ -305,16 +302,17 @@ class EpisodicBuffer(BaseBuffer):
         reward_pool = []
         self.sum_rewards()
         for ep in range(self.nb_rollouts):
-            reward_pool += self.returns[ep][0]
+            reward_pool.append(self.returns[ep][0])
         reward_std = np.std(reward_pool)
+
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
             # print("normalize_rewards : ", reward_std, "mean=", reward_mean)
         for ep in range(self.nb_rollouts):
             summ = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self._buffer["reward"][ep][i]
-                self.returns[ep][i] = (summ - reward_mean) / reward_std
+                summ = summ * self.gamma + self.rewards[ep][i]
+                self.returns[ep][i] = (summ - reward_mean) / (reward_std + 1e-6)
 
     def normalize_discounted_rewards(self) -> None:
         """
@@ -333,8 +331,8 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             summ = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self._buffer["reward"][ep][i]
-                self.returns[ep][i] = (summ - reward_mean) / reward_std
+                summ = summ * self.gamma + self.rewards[ep][i]
+                self.returns[ep][i] = (summ - reward_mean) / (reward_std + 1e-6)
 
     def exponentiate_rewards(self, beta) -> None:
         """
@@ -343,4 +341,4 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep][i] = math.exp(self._buffer["reward"][ep][i] / beta)
+                self.returns[ep][i] = math.exp(self.rewards[ep][i] / beta)
