@@ -83,12 +83,11 @@ class EpisodicBuffer(BaseBuffer):
 
         assert self.n_envs == 1, "Episode buffer only support single env for now"
 
-        self.advantages = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.value_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        # TODO: properly handle timeouts?
         self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
 
@@ -140,8 +139,8 @@ class EpisodicBuffer(BaseBuffer):
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
             self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.advantages[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.returns[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.value_returns[all_episodes, all_transitions].reshape(total_steps)),
         )
 
     def _get_samples(
@@ -190,12 +189,10 @@ class EpisodicBuffer(BaseBuffer):
         self.full = False
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
-    def post_processing(self, last_values: th.Tensor) -> None:
+    def post_processing(self) -> None:
         """
         Post-processing step: compute the return using different gradient computation criteria
         For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
-
-        :param last_values: state value estimation for the last step (one for each env)
         """
         if self.gradient_name == "beta":
             self.exponentiate_rewards(self.beta)
@@ -211,11 +208,11 @@ class EpisodicBuffer(BaseBuffer):
         elif self.gradient_name == "n_step":
             self.n_step_return()
         elif self.gradient_name == "gae":
-            self.process_gae(last_values)
+            self.process_gae()
         else:
             raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
 
-    def process_gae(self, last_values: th.Tensor) -> None:
+    def process_gae(self) -> None:
         """
         Post-processing step: compute the lambda-return (TD(lambda) estimate)
         and GAE(lambda) advantage.
@@ -230,11 +227,7 @@ class EpisodicBuffer(BaseBuffer):
         - TD(0) is one-step estimate with bootstrapping (r_t + gamma * v(s_{t+1}))
 
         For more information, see discussion in https://github.com/DLR-RM/stable-baselines3/pull/375.
-
-        :param last_values: state value estimation for the last step (one for each env)
-
         """
-        # Convert to numpy
 
         last_gae_lam = 0
         for ep in range(self.nb_rollouts):
@@ -247,10 +240,10 @@ class EpisodicBuffer(BaseBuffer):
                 else:
                     delta = self.rewards[ep, step] + self.gamma * self.values[ep, step + 1] - self.values[ep, step]
                 last_gae_lam = delta + self.gamma * self.gae_lambda * last_gae_lam
-                self.advantages[ep, step] = last_gae_lam
+                self.policy_returns[ep, step] = last_gae_lam
             # TD(lambda) estimator, see Github PR #375 or "Telescoping in TD(lambda)"
             # in David Silver Lecture 4: https://www.youtube.com/watch?v=PnHCvfgC_ZA
-            self.returns[ep] = self.advantages[ep] + self.values[ep]
+            self.value_returns[ep] = self.policy_returns[ep] + self.values[ep]
 
     def discounted_sum_rewards(self) -> None:
         """
@@ -261,14 +254,14 @@ class EpisodicBuffer(BaseBuffer):
             summ = 0
             for i in reversed(range(self.episode_lengths[ep])):
                 summ = summ * self.gamma + self.rewards[ep, i]
-                self.returns[ep, i] = summ
+                self.policy_returns[ep, i] = summ
 
     def sum_rewards(self) -> None:
         """
         Apply a sum of rewards to all samples of all episodes
         """
         for ep in range(self.nb_rollouts):
-            self.returns[ep, :] = np.sum(self.rewards[ep])
+            self.policy_returns[ep, :] = np.sum(self.rewards[ep])
 
     def subtract_baseline(self) -> None:
         """
@@ -277,7 +270,7 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep, i] = self.rewards[ep, i] - self.values[ep, i]
+                self.policy_returns[ep, i] = self.rewards[ep, i] - self.values[ep, i]
 
     def n_step_return(self) -> None:
         """
@@ -295,7 +288,7 @@ class EpisodicBuffer(BaseBuffer):
                     if i + j >= self.episode_lengths[ep]:
                         break
                     summ += self.gamma ** j * self.rewards[ep, i + j]
-                self.returns[ep, i] = summ
+                self.policy_returns[ep, i] = summ
 
     def normalize_rewards(self) -> None:
         """
@@ -305,7 +298,7 @@ class EpisodicBuffer(BaseBuffer):
         reward_pool = []
         self.sum_rewards()
         for ep in range(self.nb_rollouts):
-            reward_pool.append(self.returns[ep, 0])
+            reward_pool.append(self.policy_returns[ep, 0])
         reward_std = np.std(reward_pool)
 
         if reward_std > 0:
@@ -315,7 +308,7 @@ class EpisodicBuffer(BaseBuffer):
             discounted_sum = 0
             for i in reversed(range(self.episode_lengths[ep])):
                 discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
-                self.returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
+                self.policy_returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
 
     def normalize_discounted_rewards(self) -> None:
         """
@@ -326,7 +319,7 @@ class EpisodicBuffer(BaseBuffer):
         self.discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                reward_pool.append(self.returns[ep, i])
+                reward_pool.append(self.policy_returns[ep, i])
         reward_std = np.std(reward_pool)
         if reward_std > 0:
             reward_mean = np.mean(reward_pool)
@@ -335,7 +328,7 @@ class EpisodicBuffer(BaseBuffer):
             discounted_sum = 0
             for i in reversed(range(self.episode_lengths[ep])):
                 discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
-                self.returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
+                self.policy_returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
 
     def exponentiate_rewards(self, beta) -> None:
         """
@@ -344,4 +337,4 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
-                self.returns[ep, i] = np.exp(self.rewards[ep, i] / beta)
+                self.policy_returns[ep, i] = np.exp(self.rewards[ep, i] / beta)

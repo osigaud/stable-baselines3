@@ -58,7 +58,7 @@ def test_reinforce() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "Pendulum-v0"
+    # args.env_name = "Pendulum-v0"
     env_name = args.env_name
 
     # Create and wrap the environment

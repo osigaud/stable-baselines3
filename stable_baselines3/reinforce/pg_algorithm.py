@@ -199,7 +199,7 @@ class PGAlgorithm(BaseAlgorithm):
             obs_tensor = obs_as_tensor(new_obs, self.device)
             _, values, _ = self.policy.forward(obs_tensor)
 
-        rollout_buffer.post_processing(last_values=values)
+        rollout_buffer.post_processing()
 
         callback.on_rollout_end()
 

@@ -71,8 +71,8 @@ class CheckGAECallback(BaseCallback):
         # TD(lambda) estimate, see Github PR #375
         lambda_returns = advantages + value
 
-        assert np.allclose(buffer.advantages.flatten(), advantages)
-        assert np.allclose(buffer.returns.flatten(), lambda_returns)
+        assert np.allclose(buffer.policy_returns.flatten(), advantages)
+        assert np.allclose(buffer.value_returns.flatten(), lambda_returns)
 
     def _on_step(self):
         return True

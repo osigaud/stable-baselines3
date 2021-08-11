@@ -135,7 +135,7 @@ class A2C(OnPolicyAlgorithm):
             values = values.flatten()
 
             # Normalize advantage (not present in the original implementation)
-            advantages = rollout_data.advantages
+            advantages = rollout_data.policy_returns
             if self.normalize_advantage:
                 advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
@@ -143,7 +143,7 @@ class A2C(OnPolicyAlgorithm):
             policy_loss = -(advantages * log_prob).mean()
 
             # Value loss using the TD(gae_lambda) target
-            value_loss = F.mse_loss(rollout_data.returns, values)
+            value_loss = F.mse_loss(rollout_data.value_returns, values)
 
             # Entropy loss favor exploration
             if entropy is None:
@@ -162,7 +162,7 @@ class A2C(OnPolicyAlgorithm):
             th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.policy.optimizer.step()
 
-        explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
+        explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.value_returns.flatten())
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
