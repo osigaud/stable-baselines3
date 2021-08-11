@@ -1,17 +1,17 @@
-
 import os
 import random
-import numpy as np
-import torch
+from typing import Any, Dict, List, Optional, TextIO, Tuple, Type, Union
+
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, TextIO
-from chrono import Chrono
-from stable_baselines3 import REINFORCE, TD3, A2C
-from stable_baselines3.reinforce.custom_monitor import CustomMonitor
-
+import numpy as np
+import torch
 from arguments import get_args
+from chrono import Chrono
 from visu.visu_results import plot_results
+
+from stable_baselines3 import A2C, REINFORCE, TD3
+from stable_baselines3.reinforce.custom_monitor import CustomMonitor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -29,10 +29,10 @@ def create_data_folders() -> None:
         os.mkdir("./data/save")
     if not os.path.exists("data/critics"):
         os.mkdir("./data/critics")
-    if not os.path.exists('data/policies/'):
-        os.mkdir('data/policies/')
-    if not os.path.exists('data/results/'):
-        os.mkdir('data/results/')
+    if not os.path.exists("data/policies/"):
+        os.mkdir("data/policies/")
+    if not os.path.exists("data/results/"):
+        os.mkdir("data/results/")
 
 
 def set_files(study_name, env_name) -> Tuple[TextIO, TextIO]:
@@ -42,9 +42,9 @@ def set_files(study_name, env_name) -> Tuple[TextIO, TextIO]:
     :param env_name: the name of the environment
     :return:
     """
-    policy_loss_name = "data/save/policy_loss_" + study_name + '_' + env_name + ".txt"
+    policy_loss_name = "data/save/policy_loss_" + study_name + "_" + env_name + ".txt"
     policy_loss_file = open(policy_loss_name, "w")
-    critic_loss_name = "data/save/critic_loss_" + study_name + '_' + env_name + ".txt"
+    critic_loss_name = "data/save/critic_loss_" + study_name + "_" + env_name + ".txt"
     critic_loss_file = open(critic_loss_name, "w")
     return policy_loss_file, critic_loss_file
 
@@ -65,16 +65,17 @@ def test_reinforce() -> None:
     nb_repet = 5
     args.nb_rollouts = 2
     for i in range(len(grads)):
-        file_name = grads[i] + '_' + env_name
+        file_name = grads[i] + "_" + env_name
         print(grads[i])
         env = CustomMonitor(env_init, log_dir, file_name)
-        model = REINFORCE('MlpPolicy', env_name, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
+        model = REINFORCE("MlpPolicy", env_name, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
         for rep in range(nb_repet):
             env.start_again()
-            model.learn(int(1e5), reset_num_timesteps=rep==0)
+            model.learn(int(1e5), reset_num_timesteps=rep == 0)
 
     chrono.stop()
     plot_results(args)
+
 
 def test2():
     model = REINFORCE(
@@ -86,6 +87,7 @@ def test2():
     )
     model.learn(int(1e5))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # test2()
     test_reinforce()

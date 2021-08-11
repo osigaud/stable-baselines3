@@ -4,22 +4,36 @@ import argparse
 
 
 def make_study_string(params):
-    return params.env_name + '_' + params.critic_update_method \
-           + '_' + params.critic_estim_method + '_eval_' + str(params.deterministic_eval)
+    return (
+        params.env_name
+        + "_"
+        + params.critic_update_method
+        + "_"
+        + params.critic_estim_method
+        + "_eval_"
+        + str(params.deterministic_eval)
+    )
 
 
 def make_study_params_string(params):
-    return 'cycles_' + str(params.nb_cycles) + '_trajs_' + str(params.nb_rollouts) + '_batches_' + str(params.nb_batches)
+    return "cycles_" + str(params.nb_cycles) + "_trajs_" + str(params.nb_rollouts) + "_batches_" + str(params.nb_batches)
 
 
 def make_learning_params_string(params):
-    return 'gamma_' + str(params.gamma) + '_nstep_' + str(params.nstep) + '_lr_act_' \
-           + str(params.lr_actor) + '_lr_critic_' + str(params.lr_critic)
+    return (
+        "gamma_"
+        + str(params.gamma)
+        + "_nstep_"
+        + str(params.nstep)
+        + "_lr_act_"
+        + str(params.lr_actor)
+        + "_lr_critic_"
+        + str(params.lr_critic)
+    )
 
 
 def make_full_string(params):
-    return make_study_string(params) + '_' + make_study_params_string(params) + '_' \
-           + make_learning_params_string(params)
+    return make_study_string(params) + "_" + make_study_params_string(params) + "_" + make_learning_params_string(params)
 
 
 def get_args():
@@ -30,35 +44,39 @@ def get_args():
     """
     parser = argparse.ArgumentParser()
     # environment setting
-    parser.add_argument('--env_name', type=str, default='CartPoleContinuous-v0', help='the environment name')
-    parser.add_argument('--env_obs_space_name', type=str, default=["pos", "angle"])  # ["pos", "angle", "vx", "v angle"]
-    parser.add_argument('--render', type=bool, default=False, help='visualize the run or not')
-    parser.add_argument('--reward_shift', type=float, default=0.0, help='reward normalization')
+    parser.add_argument("--env_name", type=str, default="CartPoleContinuous-v0", help="the environment name")
+    parser.add_argument("--env_obs_space_name", type=str, default=["pos", "angle"])  # ["pos", "angle", "vx", "v angle"]
+    parser.add_argument("--render", type=bool, default=False, help="visualize the run or not")
+    parser.add_argument("--reward_shift", type=float, default=0.0, help="reward normalization")
     # study settings
-    parser.add_argument('--study_name', type=str, default='pg', help='study name: pg, regress, nstep')
-    parser.add_argument('--critic_update_method', type=str, default="dataset", help='critic update method: batch or dataset')
-    parser.add_argument('--policy_type', type=str, default="bernoulli", help='policy type: bernoulli, normal, squashedGaussian, discrete')
-    parser.add_argument('--team_name', type=str, default='default_team', help='team name')
-    parser.add_argument('--deterministic_eval', type=bool, default=True, help='deterministic policy evaluation?')
+    parser.add_argument("--study_name", type=str, default="pg", help="study name: pg, regress, nstep")
+    parser.add_argument("--critic_update_method", type=str, default="dataset", help="critic update method: batch or dataset")
+    parser.add_argument(
+        "--policy_type", type=str, default="bernoulli", help="policy type: bernoulli, normal, squashedGaussian, discrete"
+    )
+    parser.add_argument("--team_name", type=str, default="default_team", help="team name")
+    parser.add_argument("--deterministic_eval", type=bool, default=True, help="deterministic policy evaluation?")
     # study parameters
-    parser.add_argument('--nb_repet', type=int, default=10, help='number of repetitions to get statistics')
-    parser.add_argument('--nb_cycles', type=int, default=40, help='number of training cycles')
-    parser.add_argument('--nb_rollouts', type=int, default=20, help='number of rollouts in a MC batch')
-    parser.add_argument('--nb_batches', type=int, default=20, help='number of updates of the network using datasets')
+    parser.add_argument("--nb_repet", type=int, default=10, help="number of repetitions to get statistics")
+    parser.add_argument("--nb_cycles", type=int, default=40, help="number of training cycles")
+    parser.add_argument("--nb_rollouts", type=int, default=20, help="number of rollouts in a MC batch")
+    parser.add_argument("--nb_batches", type=int, default=20, help="number of updates of the network using datasets")
     # algo settings
-    parser.add_argument('--gradients', type=str, nargs='+', default=['sum', 'discount', 'normalize'], help='other: baseline, beta')
-    parser.add_argument('--critic_estim_method', type=str, default="td", help='critic estimation method: mc, td or nstep')
+    parser.add_argument(
+        "--gradients", type=str, nargs="+", default=["sum", "discount", "normalize"], help="other: baseline, beta"
+    )
+    parser.add_argument("--critic_estim_method", type=str, default="td", help="critic estimation method: mc, td or nstep")
     # learning parameters
-    parser.add_argument('--gamma', type=float, default=0.99, help='discount factor')
-    parser.add_argument('--lr_actor', type=float, default=0.01, help='learning rate of the actor')
-    parser.add_argument('--lr_critic', type=float, default=0.01, help='learning rate of the critic')
-    parser.add_argument('--beta', type=float, default=0.1, help='temperature in AWR-like learning')
-    parser.add_argument('--nstep', type=int, default=5, help='n in n-step return')
-    parser.add_argument('--batch_size', type=int, default=64, help='size of a minibatch')
-    parser.add_argument('--nb_workers', type=int, default=2, help='number of cpus to collect samples')
-    parser.add_argument('--shuffle', type=bool, default=True, help='shuffle replay samples or not')
+    parser.add_argument("--gamma", type=float, default=0.99, help="discount factor")
+    parser.add_argument("--lr_actor", type=float, default=0.01, help="learning rate of the actor")
+    parser.add_argument("--lr_critic", type=float, default=0.01, help="learning rate of the critic")
+    parser.add_argument("--beta", type=float, default=0.1, help="temperature in AWR-like learning")
+    parser.add_argument("--nstep", type=int, default=5, help="n in n-step return")
+    parser.add_argument("--batch_size", type=int, default=64, help="size of a minibatch")
+    parser.add_argument("--nb_workers", type=int, default=2, help="number of cpus to collect samples")
+    parser.add_argument("--shuffle", type=bool, default=True, help="shuffle replay samples or not")
 
-    '''
+    """
     parser.add_argument('--save-interval', type=int, default=5, help='the interval that save the trajectory')
     parser.add_argument('--seed', type=int, default=123, help='random seed')
     parser.add_argument('--replay-strategy', type=str, default='future', help='the HER strategy')
@@ -82,7 +100,7 @@ def get_args():
     parser.add_argument('--use-curriculum', action='store_true', default=False, help='use the curriculum or not')
     parser.add_argument('--multiple-target-sizes', action='store_true', default=False, help='train the agent to reach targets of different sizes')
     parser.add_argument('--include-movement-cost', action='store_false', default=True, help='consider or not the cost of a movement')
-    '''
+    """
 
     args = parser.parse_args()
     return args
