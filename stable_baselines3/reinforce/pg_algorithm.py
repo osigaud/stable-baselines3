@@ -185,10 +185,15 @@ class PGAlgorithm(BaseAlgorithm):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 
-            rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, infos)
+            rollout_buffer.add(self._last_obs, actions, rewards, dones, self._last_episode_starts, infos)
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
+        # Note(antonin): probably not needed as we are episode based (and not handling timeouts)
+        # and here the new obs is not the final observation but the
+        # first observation of the next episode
+        # the terminal one can be found in info["terminal_observation"]
+        # see https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html
         with th.no_grad():
             # Compute value for the last timestep
             obs_tensor = obs_as_tensor(new_obs, self.device)
