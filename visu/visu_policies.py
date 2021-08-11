@@ -214,7 +214,7 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname='actor.p
     for index_t, t in enumerate(np.linspace(-np.pi, np.pi, num=definition)):
         for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
             obs = np.array([[np.cos(t), np.sin(t), td]])
-            action, values, log_probs = policy.forward(obs, deterministic)
+            action, _ = policy.predict(obs, deterministic)
             portrait[definition - (1 + index_td), index_t] = action
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect='auto')
