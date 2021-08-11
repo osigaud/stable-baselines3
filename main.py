@@ -60,8 +60,8 @@ def test_reinforce() -> None:
 
     # Create and wrap the environment
     env_init = gym.make(env_name)
-    #grads = args.gradients
-    grads = ["gae"]
+    grads = args.gradients
+    # grads = ["gae"]
     nb_repet = 5
     args.nb_rollouts = 2
     for i in range(len(grads)):
@@ -72,7 +72,7 @@ def test_reinforce() -> None:
         verbose=1)
         for rep in range(nb_repet):
             env.start_again()
-            model.learn(2000)
+            model.learn(int(1e5))
 
     chrono.stop()
     plot_results(args)
@@ -80,7 +80,7 @@ def test_reinforce() -> None:
 def test2():
     model = REINFORCE(
         "MlpPolicy",
-        "CartPole-v1",
+        "CartPoleContinuous-v0",
         gradient_name="gae",
         seed=1,
         verbose=1,
