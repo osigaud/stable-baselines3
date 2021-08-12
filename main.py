@@ -58,8 +58,8 @@ def test_reinforce() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    # args.env_name = "Pendulum-v0"
-    args.env_name = "CartPole-v1"
+    args.env_name = "Pendulum-v0"
+    # args.env_name = "CartPole-v1"
     env_name = args.env_name
 
     # Create and wrap the environment
@@ -87,11 +87,11 @@ def test_reinforce() -> None:
 
         if args.env_name == "Pendulum-v0":
             plot_pendulum_policy(model.policy, env_init, deterministic=True)
+            plot_pendulum_critic(model.policy, env_init, deterministic=True)
         elif args.env_name == "CartPole-v1" or args.env_name == "CartPoleContinuous-v0":
             plot_cartpole_policy(model.policy, env_init, deterministic=True)
         else:
             plot_2d_policy(model.policy, env_init, deterministic=True)
-        # plot_pendulum_critic(model.policy, env_init, deterministic=True)
     chrono.stop()
     plot_results(args)
 

@@ -75,7 +75,7 @@ def plot_1d_policy(policy, env, deterministic, plot=True, figname="policy_1D.pdf
     actions = []
     for index_x, x in enumerate(np.linspace(x_min, x_max, num=definition)):
         obs = np.array([x])
-        action, _ = policy.predict(obs, deterministic)
+        action, _ = policy.predict(obs, deterministic=deterministic)
         states.append(obs)
         actions.append(action)
 
@@ -107,7 +107,7 @@ def plot_2d_policy(policy, env, deterministic, plot=True, figname="stoch_actor.p
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
             # Be careful to fill the matrix in the right order
             obs = np.array([[x, y]])
-            action, _ = policy.predict(obs, deterministic)
+            action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
@@ -176,7 +176,7 @@ def plot_nd_policy(policy, env, deterministic, plot=True, figname="stoch_actor.p
             for i in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
-            action, _ = policy.predict(obs, deterministic)
+            action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
@@ -211,7 +211,7 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="stoch_a
             for i in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
-            action, _ = policy.predict(obs, deterministic)
+            action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
@@ -243,7 +243,7 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="actor.p
     for index_t, t in enumerate(np.linspace(-np.pi, np.pi, num=definition)):
         for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
             obs = np.array([[np.cos(t), np.sin(t), td]])
-            action, _ = policy.predict(obs, deterministic)
+            action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_td), index_t] = action
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
