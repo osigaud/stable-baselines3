@@ -56,7 +56,8 @@ def plot_2d_critic(model, env, deterministic, plot=True, figname="vfunction.pdf"
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
             # Be careful to fill the matrix in the right order
             obs = np.array([[x, y]])
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            with th.no_grad():
+                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -90,11 +91,12 @@ def plot_nd_critic(model, env, deterministic, plot=True, figname="vfunction.pdf"
 
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[1], state_max[1], num=definition)):
-            state = np.array([[x, y]])
+            obs = np.array([[x, y]])
             for i in range(2, len(state_min)):
                 z = random.random() - 0.5
-                obs = np.append(state, z)
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                obs = np.append(obs, z)
+            with th.no_grad():
+                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -131,7 +133,8 @@ def plot_qfunction_1d(model, env, deterministic, plot=True, figname="qfunction_1
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
             # Be careful to fill the matrix in the right order
             obs = np.array([x])
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            with th.no_grad():
+                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -166,8 +169,9 @@ def plot_qfunction_cont_act(model, env, deterministic, plot=True, figname="qfunc
 
     for index_x, x in enumerate(np.linspace(x_min, x_max, num=definition)):
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
-            obs = np.array([x, y])
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            obs = np.array([[x, y]])
+            with th.no_grad():
+                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -234,13 +238,15 @@ def plot_cartpole_critic(model, env, deterministic, plot=True, figname="vfunctio
 
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
-            obs = np.array([x])
+            obs = np.array([[x]])
             z1 = random.random() - 0.5
             z2 = random.random() - 0.5
             obs = np.append(obs, z1)
             obs = np.append(obs, y)
             obs = np.append(obs, z2)
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            print (obs)
+            with th.no_grad():
+                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))

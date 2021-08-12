@@ -85,7 +85,7 @@ def test_reinforce() -> None:
         for rep in range(nb_repet):
             env.start_again()
             model.reset_episodes()
-            model.learn(int(6000), reset_num_timesteps=rep == 0, callback=lcb)
+            model.learn(int(600), reset_num_timesteps=rep == 0, callback=lcb)
 
         actname = args.env_name + "_actor_" + grads[i] + "_post.pdf"
         critname = args.env_name + "_critic_" + grads[i] + "_post.pdf"
