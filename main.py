@@ -13,6 +13,7 @@ from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendul
 from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
+
 # from stable_baselines3.reinforce.custom_monitor import CustomMonitor
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.reinforce.loss_callback import LossCallback
@@ -75,8 +76,16 @@ def test_reinforce() -> None:
         lcb = LossCallback(log_dir, file_name)
         monitor_file_name = log_dir + file_name
         # env = Monitor(env_init, monitor_file_name)
-        model = REINFORCE("MlpPolicy", env_init, grads[i], beta=args.beta, nb_rollouts=args.nb_rollouts, seed=1, verbose=1,
-                tensorboard_log=monitor_file_name)
+        model = REINFORCE(
+            "MlpPolicy",
+            env_init,
+            grads[i],
+            beta=args.beta,
+            nb_rollouts=args.nb_rollouts,
+            seed=1,
+            verbose=1,
+            tensorboard_log=monitor_file_name,
+        )
 
         actname = args.env_name + "_actor_" + grads[i] + "_pre.pdf"
         if args.env_name == "Pendulum-v0":
