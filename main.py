@@ -9,7 +9,7 @@ import torch
 from arguments import get_args
 from chrono import Chrono
 from visu.visu_critics import plot_pendulum_critic
-from visu.visu_policies import plot_pendulum_policy
+from visu.visu_policies import plot_pendulum_policy, plot_cartpole_policy, plot_2d_policy
 from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
@@ -59,6 +59,7 @@ def test_reinforce() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
+    args.env_name = "CartPole-v1"
     env_name = args.env_name
 
     # Create and wrap the environment
@@ -73,12 +74,23 @@ def test_reinforce() -> None:
         lcb = LossCallback(log_dir, file_name)
         env = CustomMonitor(env_init, log_dir, file_name)
         model = REINFORCE("MlpPolicy", env, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
+        if args.env_name == "Pendulum-v0":
+            plot_pendulum_policy(model.policy, env_init, deterministic=True)
+        elif args.env_name == "CartPole-v1" or args.env_name == "CartPoleContinuous-v0":
+            plot_cartpole_policy(model.policy, env_init, deterministic=True)
+        else:
+            plot_2d_policy(model.policy, env_init, deterministic=True)
         for rep in range(nb_repet):
             env.start_again()
             model.reset_episodes()
             model.learn(int(6000), reset_num_timesteps=rep == 0, callback=lcb)
 
-        # plot_pendulum_policy(model.policy, env_init, deterministic=True)
+        if args.env_name == "Pendulum-v0":
+            plot_pendulum_policy(model.policy, env_init, deterministic=True)
+        elif args.env_name == "CartPole-v1" or args.env_name == "CartPoleContinuous-v0":
+            plot_cartpole_policy(model.policy, env_init, deterministic=True)
+        else:
+            plot_2d_policy(model.policy, env_init, deterministic=True)
         # plot_pendulum_critic(model.policy, env_init, deterministic=True)
     chrono.stop()
     plot_results(args)

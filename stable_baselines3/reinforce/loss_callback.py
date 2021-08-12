@@ -66,6 +66,13 @@ class LossCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
+        pass
+
+
+    def on_episode_end(self) -> None:
+        """
+        This event is triggered before updating the policy.
+        """
         num = self.logger.name_to_value["time/episode"]
         policy_loss = self.logger.name_to_value["train/policy_loss"]
         critic_loss = self.logger.name_to_value["train/value_loss"]

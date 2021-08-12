@@ -194,8 +194,8 @@ class PGAlgorithm(BaseAlgorithm):
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.num_episode += 1
-                print("OK episode:", self.num_episode)
                 self.logger.record("time/episode", self.num_episode, exclude="tensorboard")
+                callback.on_episode_end()
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
