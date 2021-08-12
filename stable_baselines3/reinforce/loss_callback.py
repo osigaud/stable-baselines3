@@ -1,5 +1,7 @@
-from stable_baselines3.common.callbacks import BaseCallback
 from typing import Any, Dict, List, Optional, TextIO, Tuple, Type, Union
+
+from stable_baselines3.common.callbacks import BaseCallback
+
 
 class LossCallback(BaseCallback):
     """
@@ -8,12 +10,7 @@ class LossCallback(BaseCallback):
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
 
-    def __init__(
-            self,
-            dir_name: Optional[str] = None,
-            file_name: Optional[str] = None,
-            verbose=0
-    ):
+    def __init__(self, dir_name: Optional[str] = None, file_name: Optional[str] = None, verbose=0):
         super(LossCallback, self).__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -67,7 +64,6 @@ class LossCallback(BaseCallback):
         This event is triggered before updating the policy.
         """
         pass
-
 
     def on_episode_end(self) -> None:
         """

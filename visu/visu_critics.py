@@ -33,7 +33,9 @@ def plot_critic(simu, model, study, default_string, num):
 
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
-def plot_2d_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_2d_critic(
+    model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
+) -> None:
     """
     Plot a value function in a 2-dimensional state space
     :param model: the policy and critic to be plotted
@@ -69,7 +71,9 @@ def plot_2d_critic(model, env, deterministic, plot=True, figname="vfunction.pdf"
     final_show(save_figure, plot, figname, x_label, y_label, "V Function", foldername)
 
 
-def plot_nd_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_nd_critic(
+    model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
+) -> None:
     """
     Visualization of the critic in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -109,7 +113,9 @@ def plot_nd_critic(model, env, deterministic, plot=True, figname="vfunction.pdf"
 
 
 # visualization of the Q function for a 1D environment like 1D Toy with continuous actions
-def plot_qfunction_1d(model, env, deterministic, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_qfunction_1d(
+    model, env, deterministic, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True
+) -> None:
     """
     Plot a q function in a 1-dimensional state space. The second dimension covers the whole action space
     :param model: the policy and critic to be plotted
@@ -146,7 +152,9 @@ def plot_qfunction_1d(model, env, deterministic, plot=True, figname="qfunction_1
     final_show(save_figure, plot, figname, x_label, y_label, "Q Function", foldername)
 
 
-def plot_qfunction_cont_act(model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_qfunction_cont_act(
+    model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True
+) -> None:
     """
     Visualization of the Q function for a 2D environment like continuous mountain car.
     Uses the same action everywhere in the state space
@@ -216,7 +224,15 @@ def plot_pendulum_critic(model, env, deterministic, plot=True, figname="pendulum
     final_show(save_figure, plot, figname, x_label, y_label, "Critic phase portrait", "/plots/")
 
 
-def plot_cartpole_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_cartpole_critic(
+    model,
+    env,
+    deterministic,
+    plot=True,
+    figname="vfunction.pdf",
+    foldername="/plots/",
+    save_figure=True,
+) -> None:
     """
     Visualization of the critic in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -238,13 +254,14 @@ def plot_cartpole_critic(model, env, deterministic, plot=True, figname="vfunctio
 
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
-            obs = np.array([[x]])
+            obs = np.array([x])
             z1 = random.random() - 0.5
             z2 = random.random() - 0.5
             obs = np.append(obs, z1)
             obs = np.append(obs, y)
             obs = np.append(obs, z2)
-            print (obs)
+            # Add batch dim
+            obs = obs.reshape(1, -1)
             with th.no_grad():
                 _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()

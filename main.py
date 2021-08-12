@@ -8,8 +8,8 @@ import numpy as np
 import torch
 from arguments import get_args
 from chrono import Chrono
-from visu.visu_critics import plot_pendulum_critic, plot_cartpole_critic, plot_2d_critic
-from visu.visu_policies import plot_pendulum_policy, plot_cartpole_policy, plot_2d_policy
+from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
+from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
