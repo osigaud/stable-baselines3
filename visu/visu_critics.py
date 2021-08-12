@@ -27,20 +27,16 @@ def plot_critic(simu, model, study, default_string, num):
         if obs_size == 1:
             plot_qfunction_1d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
         elif obs_size == 2:
-            plot_qfunction_2d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
+            plot_critic_2d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
         else:
-            plot_qfunction_nd(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
-    else:
-        if obs_size == 2:
-            plot_vfunction_2d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
-        else:
-            plot_vfunction_nd(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
+            plot_critic_nd(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
 
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
-def plot_vfunction_2d(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_critic_2d(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Plot a value function in a 2-dimensional state space
+    :param model: the policy and critic to be plotted
     :param env: the environment
     :param plot: whether the plot should be interactive
     :param figname: the name of the file where to plot the function
@@ -72,12 +68,12 @@ def plot_vfunction_2d(model, env, deterministic, plot=True, figname="vfunction.p
     final_show(save_figure, plot, figname, x_label, y_label, "V Function", foldername)
 
 
-# visualization of the V function for a ND environment like cartpole. The action does not matter.
-def plot_vfunction_nd(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_critic_nd(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
-    Plot a value function in a N-dimensional state space
+    Visualization of the critic in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
     A FeatureInverter wrapper should be used to select which features to put first so as to plot them
+    :param model: the policy and critic to be plotted
     :param env: the environment
     :param plot: whether the plot should be interactive
     :param figname: the name of the file where to plot the function
@@ -98,7 +94,7 @@ def plot_vfunction_nd(model, env, deterministic, plot=True, figname="vfunction.p
             for i in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(state, z)
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -114,13 +110,12 @@ def plot_vfunction_nd(model, env, deterministic, plot=True, figname="vfunction.p
 def plot_qfunction_1d(model, env, deterministic, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Plot a q function in a 1-dimensional state space. The second dimension covers the whole action space
-    :param qfunction: the action value function to be plotted
+    :param model: the policy and critic to be plotted
     :param env: the environment
     :param plot: whether the plot should be interactive
     :param figname: the name of the file where to plot the function
     :param foldername: the name of the folder where to put the file
     :param save_figure: whether the plot should be saved into a file
-    :param definition: the resolution of the plot
     :return: nothing
     """
     if env.observation_space.shape[0] != 1:
@@ -148,89 +143,11 @@ def plot_qfunction_1d(model, env, deterministic, plot=True, figname="qfunction_1
     final_show(save_figure, plot, figname, x_label, y_label, "Q Function", foldername)
 
 
-# visualization of the Q function for a 2D environment like continuous mountain car.
-# The action is the one from the policy sent as parameter
-def plot_qfunction_2d(model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True) -> None:
-    """
-    Plot a q function in a 2-dimensional state space using a given policy to chose an action everywhere in the state space
-    :param model: the policy and critic specifying the action to be plotted
-    :param env: the environment
-    :param plot: whether the plot should be interactive
-    :param figname: the name of the file where to plot the function
-    :param foldername: the name of the folder where to put the file
-    :param save_figure: whether the plot should be saved into a file
-    :return: nothing
-    """
-    if env.observation_space.shape[0] != 2:
-        raise (
-            ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0]))
-        )
-    definition = 200
-    portrait = np.zeros((definition, definition))
-    x_min, y_min = env.observation_space.low
-    x_max, y_max = env.observation_space.high
-
-    for index_x, x in enumerate(np.linspace(x_min, x_max, num=definition)):
-        for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
-            obs = np.array([x, y])
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
-            portrait[definition - (1 + index_y), index_x] = value.item()
-
-    plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[x_min, x_max, y_min, y_max], aspect="auto")
-    plt.colorbar(label="critic value")
-    # Add a point at the center
-    plt.scatter([0], [0])
-    x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Q Function or current policy", foldername)
-
-
-# visualization of the Q function for a ND environment like continuous cart pole.
-# The action is the one from the policy sent as parameter
-def plot_qfunction_nd(model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True) -> None:
-    """
-    Plot a q function in a N-dimensional state space using a given policy to chose an action everywhere in the state space
-    The N-dimensional state space is projected into its first two dimensions.
-    A FeatureInverter wrapper should be used to select which features to put first so as to plot them
-    :param model: the policy and critic specifying the action to be plotted
-    :param env: the environment
-    :param plot: whether the plot should be interactive
-    :param figname: the name of the file where to plot the function
-    :param foldername: the name of the folder where to put the file
-    :param save_figure: whether the plot should be saved into a file
-    :return: nothing
-    """
-    if env.observation_space.shape[0] <= 2:
-        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
-    portrait = np.zeros((definition, definition))
-    state_min = env.observation_space.low
-    state_max = env.observation_space.high
-
-    for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
-        for index_y, y in enumerate(np.linspace(state_min[1], state_max[1], num=definition)):
-            obs = np.array([[x, y]])
-            for i in range(2, len(state_min)):
-                z = random.random() - 0.5
-                obs = np.append(obs, z)
-            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
-            portrait[definition - (1 + index_y), index_x] = value.item()
-
-    plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
-    plt.colorbar(label="critic value")
-    # Add a point at the center
-    plt.scatter([0], [0])
-    x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Q Function or current policy", foldername)
-
-
-# visualization of the Q function for a 2D environment like continuous mountain car.
-# The action is given as parameter
 def plot_qfunction_cont_act(model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True) -> None:
     """
-    Plot a q function using the same action everywhere in the state space
-    :param model: the policy and critic specifying the action to be plotted
+    Visualization of the Q function for a 2D environment like continuous mountain car.
+    Uses the same action everywhere in the state space
+    :param model: the policy and critic to be plotted
     :param env: the environment
     :param plot: whether the plot should be interactive
     :param figname: the name of the file where to plot the function
