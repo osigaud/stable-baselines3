@@ -66,7 +66,7 @@ def test_reinforce() -> None:
     # Create and wrap the environment
     env_init = gym.make(env_name)
     # grads = args.gradients
-    grads = ["gae"]
+    grads = ["baseline"]
     nb_repet = 5
     args.nb_rollouts = 2
     for i in range(len(grads)):
@@ -75,29 +75,29 @@ def test_reinforce() -> None:
         lcb = LossCallback(log_dir, file_name)
         monitor_file_name = log_dir + file_name
         # env = Monitor(env_init, monitor_file_name)
-        model = REINFORCE("MlpPolicy", env_init, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1,
+        model = REINFORCE("MlpPolicy", env_init, grads[i], beta=args.beta, nb_rollouts=args.nb_rollouts, seed=1, verbose=1,
                 tensorboard_log=monitor_file_name)
 
         actname = args.env_name + "_actor_" + grads[i] + "_pre.pdf"
         if args.env_name == "Pendulum-v0":
-            plot_pendulum_policy(model.policy, env_init, deterministic=True, figname=actname)
+            plot_pendulum_policy(model.policy, env_init, deterministic=True, figname=actname, plot=False)
         elif args.env_name == "CartPole-v1" or args.env_name == "CartPoleContinuous-v0":
-            plot_cartpole_policy(model.policy, env_init, deterministic=True, figname=actname)
+            plot_cartpole_policy(model.policy, env_init, deterministic=True, figname=actname, plot=False)
         else:
             plot_2d_policy(model.policy, env_init, deterministic=True)
-        for rep in range(nb_repet):
+        for rep in range(args.nb_repet):
             # env.start_again()
             model.reset_episodes()
-            model.learn(int(600), reset_num_timesteps=rep == 0, callback=lcb)
+            model.learn(int(1e5), reset_num_timesteps=rep == 0, callback=lcb, log_interval=args.log_interval)
 
         actname = args.env_name + "_actor_" + grads[i] + "_post.pdf"
         critname = args.env_name + "_critic_" + grads[i] + "_post.pdf"
         if args.env_name == "Pendulum-v0":
-            plot_pendulum_policy(model.policy, env_init, deterministic=True, figname=actname)
-            plot_pendulum_critic(model.policy, env_init, deterministic=True, figname=critname)
+            plot_pendulum_policy(model.policy, env_init, deterministic=True, figname=actname, plot=False)
+            plot_pendulum_critic(model.policy, env_init, deterministic=True, figname=critname, plot=False)
         elif args.env_name == "CartPole-v1" or args.env_name == "CartPoleContinuous-v0":
-            plot_cartpole_policy(model.policy, env_init, deterministic=True, figname=actname)
-            plot_cartpole_critic(model.policy, env_init, deterministic=True, figname=critname)
+            plot_cartpole_policy(model.policy, env_init, deterministic=True, figname=actname, plot=False)
+            plot_cartpole_critic(model.policy, env_init, deterministic=True, figname=critname, plot=False)
         else:
             plot_2d_policy(model.policy, env_init, deterministic=True)
     chrono.stop()
