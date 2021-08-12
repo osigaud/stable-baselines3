@@ -27,13 +27,13 @@ def plot_critic(simu, model, study, default_string, num):
         if obs_size == 1:
             plot_qfunction_1d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
         elif obs_size == 2:
-            plot_critic_2d(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
+            plot_2d_critic(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
         else:
-            plot_critic_nd(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
+            plot_nd_critic(model, env, deterministic, plot=False, save_figure=True, figname=picname, foldername="/plots/")
 
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
-def plot_critic_2d(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_2d_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Plot a value function in a 2-dimensional state space
     :param model: the policy and critic to be plotted
@@ -68,7 +68,7 @@ def plot_critic_2d(model, env, deterministic, plot=True, figname="vfunction.pdf"
     final_show(save_figure, plot, figname, x_label, y_label, "V Function", foldername)
 
 
-def plot_critic_nd(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+def plot_nd_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Visualization of the critic in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -210,3 +210,43 @@ def plot_pendulum_critic(model, env, deterministic, plot=True, figname="pendulum
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
     final_show(save_figure, plot, figname, x_label, y_label, "Critic phase portrait", "/plots/")
+
+
+def plot_cartpole_critic(model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
+    """
+    Visualization of the critic in a N-dimensional state space
+    The N-dimensional state space is projected into its first two dimensions.
+    A FeatureInverter wrapper should be used to select which features to put first so as to plot them
+    :param model: the policy and critic to be plotted
+    :param env: the environment
+    :param plot: whether the plot should be interactive
+    :param figname: the name of the file where to plot the function
+    :param foldername: the name of the folder where to put the file
+    :param save_figure: whether the plot should be saved into a file
+    :return: nothing
+    """
+    if env.observation_space.shape[0] <= 2:
+        raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
+    definition = 200
+    portrait = np.zeros((definition, definition))
+    state_min = env.observation_space.low
+    state_max = env.observation_space.high
+
+    for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
+        for index_y, y in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
+            obs = np.array([x])
+            z1 = random.random() - 0.5
+            z2 = random.random() - 0.5
+            obs = np.append(obs, z1)
+            obs = np.append(obs, y)
+            obs = np.append(obs, z2)
+            _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+            portrait[definition - (1 + index_y), index_x] = value.item()
+
+    plt.figure(figsize=(10, 10))
+    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
+    plt.colorbar(label="critic value")
+    # Add a point at the center
+    plt.scatter([0], [0])
+    x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
+    final_show(save_figure, plot, figname, x_label, y_label, "V Function", foldername)

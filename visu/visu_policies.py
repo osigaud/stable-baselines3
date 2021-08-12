@@ -207,10 +207,12 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="stoch_a
 
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
-            obs = np.array([[x, y]])
-            for i in range(2, len(state_min)):
-                z = random.random() - 0.5
-                obs = np.append(obs, z)
+            obs = np.array([x])
+            z1 = random.random() - 0.5
+            z2 = random.random() - 0.5
+            obs = np.append(obs, z1)
+            obs = np.append(obs, y)
+            obs = np.append(obs, z2)
             action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
@@ -219,10 +221,10 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="stoch_a
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
+    final_show(save_figure, plot, figname, x_label, y_label, figname, "/plots/")
 
 
-def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="actor.pdf", save_figure=True) -> None:
+def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="pendulum_actor.pdf", save_figure=True) -> None:
     """
     Plot a policy for the Pendulum environment
     :param policy: the policy to be plotted
@@ -251,4 +253,4 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="actor.p
     # Add a point at the center
     plt.scatter([0], [0])
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
-    final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
+    final_show(save_figure, plot, figname, x_label, y_label, figname, "/plots/")
