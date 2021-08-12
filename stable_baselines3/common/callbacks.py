@@ -65,6 +65,9 @@ class BaseCallback(ABC):
     def _on_rollout_start(self) -> None:
         pass
 
+    def on_episode_end(self) -> None:
+        pass
+
     @abstractmethod
     def _on_step(self) -> bool:
         """
