@@ -6,7 +6,6 @@ from torch.nn import functional as F
 
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance
 from stable_baselines3.reinforce.pg_algorithm import PGAlgorithm
 
 

@@ -13,7 +13,8 @@ from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendul
 from visu.visu_results import plot_results
 
 from stable_baselines3 import A2C, REINFORCE, TD3
-from stable_baselines3.reinforce.custom_monitor import CustomMonitor
+# from stable_baselines3.reinforce.custom_monitor import CustomMonitor
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.reinforce.loss_callback import LossCallback
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,16 +65,18 @@ def test_reinforce() -> None:
 
     # Create and wrap the environment
     env_init = gym.make(env_name)
-    grads = args.gradients
-    # grads = ["gae"]
+    # grads = args.gradients
+    grads = ["gae"]
     nb_repet = 5
     args.nb_rollouts = 2
     for i in range(len(grads)):
         file_name = grads[i] + "_" + env_name
         print(grads[i])
         lcb = LossCallback(log_dir, file_name)
-        env = CustomMonitor(env_init, log_dir, file_name)
-        model = REINFORCE("MlpPolicy", env, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1)
+        monitor_file_name = log_dir + file_name
+        # env = Monitor(env_init, monitor_file_name)
+        model = REINFORCE("MlpPolicy", env_init, grads[i], args.beta, args.nb_rollouts, seed=1, verbose=1,
+                tensorboard_log=monitor_file_name)
 
         actname = args.env_name + "_actor_" + grads[i] + "_pre.pdf"
         if args.env_name == "Pendulum-v0":
@@ -83,7 +86,7 @@ def test_reinforce() -> None:
         else:
             plot_2d_policy(model.policy, env_init, deterministic=True)
         for rep in range(nb_repet):
-            env.start_again()
+            # env.start_again()
             model.reset_episodes()
             model.learn(int(600), reset_num_timesteps=rep == 0, callback=lcb)
 
@@ -98,7 +101,7 @@ def test_reinforce() -> None:
         else:
             plot_2d_policy(model.policy, env_init, deterministic=True)
     chrono.stop()
-    plot_results(args)
+    # plot_results(args)
 
 
 def test2():
