@@ -1,24 +1,27 @@
 import os
 import random
-import numpy as np
-import torch
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-
+import numpy as np
+import torch
 from arguments import get_args
 from chrono import Chrono
 from visu.visu_critics import plot_cartpole_critic, plot_pendulum_critic
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 
-from stable_baselines3 import REINFORCE
-from stable_baselines3.reinforce.loss_callback import LossCallback
+from stable_baselines3 import A2C, REINFORCE, TD3
 from stable_baselines3.common.callbacks import EvalCallback
+
+# from stable_baselines3.reinforce.custom_monitor import CustomMonitor
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.reinforce.loss_callback import LossCallback
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
+
 
 def test_reinforce() -> None:
     args = get_args()
@@ -39,12 +42,25 @@ def test_reinforce() -> None:
         print(grads[i])
         lcb = LossCallback(log_dir, file_name)
         eval_env = gym.make(args.env_name)
-        eval_callback = EvalCallback(eval_env, best_model_save_path=log_dir+'bests/',
-                                     log_path=log_dir, eval_freq=500,
-                                     deterministic=True, render=False)
+        eval_callback = EvalCallback(
+            eval_env,
+            best_model_save_path=log_dir + "bests/",
+            log_path=log_dir,
+            eval_freq=500,
+            deterministic=True,
+            render=False,
+        )
 
-        model = REINFORCE("MlpPolicy", env, grads[i], beta=args.beta, nb_rollouts=args.nb_rollouts, seed=1, verbose=1,
-                tensorboard_log=log_file_name)
+        model = REINFORCE(
+            "MlpPolicy",
+            env,
+            grads[i],
+            beta=args.beta,
+            nb_rollouts=args.nb_rollouts,
+            seed=1,
+            verbose=1,
+            tensorboard_log=log_file_name,
+        )
 
         actname = args.env_name + "_actor_" + grads[i] + "_pre.pdf"
         if args.env_name == "Pendulum-v0":

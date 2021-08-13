@@ -1,9 +1,13 @@
 import os
+import subprocess
 
 from setuptools import find_packages, setup
 
 with open(os.path.join("stable_baselines3", "version.txt"), "r") as file_handler:
     __version__ = file_handler.read().strip()
+
+# Taken from PyTorch code to have a different version per commit
+hash = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=".").decode("ascii").strip()
 
 
 long_description = """
@@ -131,7 +135,7 @@ setup(
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    version=__version__,
+    version=f"{__version__}+{hash}",
 )
 
 # python setup.py sdist

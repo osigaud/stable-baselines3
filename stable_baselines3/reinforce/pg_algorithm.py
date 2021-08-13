@@ -96,7 +96,7 @@ class PGAlgorithm(BaseAlgorithm):
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_buffer = None
-        self.num_episode = 0
+        self.episode_num = 0
 
         if _init_setup_model:
             self._setup_model()
@@ -133,7 +133,7 @@ class PGAlgorithm(BaseAlgorithm):
         self.policy = self.policy.to(self.device)
 
     def reset_episodes(self):
-        self.num_episode = 0
+        self.episode_num = 0
 
     def collect_rollouts(
         self,
@@ -193,8 +193,8 @@ class PGAlgorithm(BaseAlgorithm):
             rollout_buffer.add(self._last_obs, actions, rewards, dones, self._last_episode_starts, infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
-                self.num_episode += 1
-                self.logger.record("time/episode", self.num_episode, exclude="tensorboard")
+                self.episode_num += 1
+                self.logger.record("time/episode", self.episode_num, exclude="tensorboard")
                 # callback.on_episode_end() # Only possible if callback = LossCallBack
             self._last_obs = new_obs
             self._last_episode_starts = dones
