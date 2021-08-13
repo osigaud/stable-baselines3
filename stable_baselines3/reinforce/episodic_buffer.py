@@ -269,8 +269,8 @@ class EpisodicBuffer(BaseBuffer):
         :return: nothing
         """
         for ep in range(self.nb_rollouts):
-            for i in range(self.episode_lengths[ep]):
-                self.policy_returns[ep, i] = self.rewards[ep, i] - self.values[ep, i]
+            self.policy_returns[ep] = self.rewards[ep] - self.values[ep]
+            self.value_returns[ep] = self.values[ep]
 
     def n_step_return(self) -> None:
         """
