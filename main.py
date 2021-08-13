@@ -21,7 +21,6 @@ torch.manual_seed(0)
 np.random.seed(0)
 random.seed(0)
 
-
 def test_reinforce() -> None:
     args = get_args()
     chrono = Chrono()
@@ -30,7 +29,7 @@ def test_reinforce() -> None:
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
     args.env_name = "CartPole-v1"
-    args.gradients = ["baseline"]
+    args.gradients = ["sum","discount","normalize","normalized discount","n step","baseline","gae"]
     args.nb_rollouts = 2
     # Create and wrap the environment
     env = gym.make(args.env_name)

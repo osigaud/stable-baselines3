@@ -84,7 +84,7 @@ class EpisodicBuffer(BaseBuffer):
         assert self.n_envs == 1, "Episode buffer only support single env for now"
 
         self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.value_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
@@ -140,7 +140,7 @@ class EpisodicBuffer(BaseBuffer):
             self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.value_returns[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
         )
 
     def _get_samples(
@@ -195,22 +195,105 @@ class EpisodicBuffer(BaseBuffer):
         For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
         """
         if self.gradient_name == "beta":
-            self.exponentiate_rewards(self.beta)
+            self.get_exponentiated_rewards(self.beta)
         elif self.gradient_name == "sum":
-            self.sum_rewards()
+            self.get_sum_rewards()
         elif self.gradient_name == "discount":
-            self.discounted_sum_rewards()
+            self.get_discounted_sum_rewards()
         elif self.gradient_name == "normalize":
-            self.normalize_rewards()
+            self.get_normalized_rewards()
+        elif self.gradient_name == "normalized discount":
+            self.get_normalized_discounted_rewards()
         elif self.gradient_name == "baseline":
-            self.discounted_sum_rewards()
+            self.get_target_values()
+            self.get_discounted_sum_rewards()
             self.subtract_baseline()
-        elif self.gradient_name == "n_step":
-            self.n_step_return()
+        elif self.gradient_name == "n step":
+            self.get_n_step_return()
         elif self.gradient_name == "gae":
             self.process_gae()
         else:
             raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+
+    def get_discounted_sum_rewards(self) -> None:
+        """
+        Apply a discounted sum of rewards to all samples of all episodes
+        :return: nothing
+        """
+        for ep in range(self.nb_rollouts):
+            summ = 0
+            for i in reversed(range(self.episode_lengths[ep])):
+                summ = summ * self.gamma + self.rewards[ep, i]
+                self.policy_returns[ep, i] = summ
+
+    def get_sum_rewards(self) -> None:
+        """
+        Apply a sum of rewards to all samples of all episodes
+        """
+        for ep in range(self.nb_rollouts):
+            self.policy_returns[ep, :] = np.sum(self.rewards[ep])
+
+    def subtract_baseline(self) -> None:
+        """
+        Subtracts the values to the reward of all samples of all episodes
+        :return: nothing
+        """
+        for ep in range(self.nb_rollouts):
+            self.policy_returns[ep] = self.rewards[ep] - self.values[ep]
+
+    def get_n_step_return(self) -> None:
+        """
+        Apply Bellman backup n-step return to all rewards of all samples of all episodes
+        :return: nothing
+        """
+        for ep in range(self.nb_rollouts):
+            for i in range(self.episode_lengths[ep]):
+                horizon = i + self.n_steps
+                summ = self.rewards[ep, i]
+                if horizon < self.episode_lengths[ep]:
+                    bootstrap_val = self.values[ep, horizon]
+                    summ += self.gamma ** self.n_steps * bootstrap_val
+                for j in range(1, self.n_steps):
+                    if i + j >= self.episode_lengths[ep]:
+                        break
+                    summ += self.gamma ** j * self.rewards[ep, i + j]
+                self.policy_returns[ep, i] = summ
+
+    def get_normalized_rewards(self) -> None:
+        """
+        Normalize rewards of all samples of all episodes
+        """
+        for ep in range(self.nb_rollouts):
+            self.policy_returns[ep] = self.rewards[ep]
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
+    def get_normalized_discounted_rewards(self) -> None:
+        """
+        Apply a normalized and discounted sum of rewards to all samples of the episode
+        """
+        self.get_discounted_sum_rewards()
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
+    def get_exponentiated_rewards(self, beta) -> None:
+        """
+        Apply an exponentiation factor to the rewards of all samples of all episodes
+        :param beta: the exponentiation factor
+        """
+        for ep in range(self.nb_rollouts):
+            self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
+
+    def get_target_values(self) -> None:
+        """
+        """
+        for ep in range(self.nb_rollouts):
+            for step in reversed(range(self.episode_lengths[ep])):
+                if step == self.episode_lengths[ep] - 1:
+                    # Episodic setting: last step is always terminal
+                    # and we are not handling timeout separately yet
+                    target = self.rewards[ep, step]
+                else:
+                    target = self.rewards[ep, step] + self.gamma * self.gae_lambda * self.values[ep, step + 1]
+                self.target_values[ep, step] = target
 
     def process_gae(self) -> None:
         """
@@ -243,98 +326,4 @@ class EpisodicBuffer(BaseBuffer):
                 self.policy_returns[ep, step] = last_gae_lam
             # TD(lambda) estimator, see Github PR #375 or "Telescoping in TD(lambda)"
             # in David Silver Lecture 4: https://www.youtube.com/watch?v=PnHCvfgC_ZA
-            self.value_returns[ep] = self.policy_returns[ep] + self.values[ep]
-
-    def discounted_sum_rewards(self) -> None:
-        """
-        Apply a discounted sum of rewards to all samples of all episodes
-        :return: nothing
-        """
-        for ep in range(self.nb_rollouts):
-            summ = 0
-            for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self.rewards[ep, i]
-                self.policy_returns[ep, i] = summ
-
-    def sum_rewards(self) -> None:
-        """
-        Apply a sum of rewards to all samples of all episodes
-        """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep, :] = np.sum(self.rewards[ep])
-
-    def subtract_baseline(self) -> None:
-        """
-        Subtracts the values to the reward of all samples of all episodes
-        :return: nothing
-        """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep] = self.rewards[ep] - self.values[ep]
-            self.value_returns[ep] = self.values[ep]
-
-    def n_step_return(self) -> None:
-        """
-        Apply Bellman backup n-step return to all rewards of all samples of all episodes
-        :return: nothing
-        """
-        for ep in range(self.nb_rollouts):
-            for i in range(self.episode_lengths[ep]):
-                horizon = i + self.n_steps
-                summ = self.rewards[ep, i]
-                if horizon < self.episode_lengths[ep]:
-                    bootstrap_val = self.values[ep, horizon]
-                    summ += self.gamma ** self.n_steps * bootstrap_val
-                for j in range(1, self.n_steps):
-                    if i + j >= self.episode_lengths[ep]:
-                        break
-                    summ += self.gamma ** j * self.rewards[ep, i + j]
-                self.policy_returns[ep, i] = summ
-
-    def normalize_rewards(self) -> None:
-        """
-        Apply a normalized and discounted sum of rewards to all samples of all episodes
-        """
-        reward_mean = 0
-        reward_pool = []
-        self.sum_rewards()
-        for ep in range(self.nb_rollouts):
-            reward_pool.append(self.policy_returns[ep, 0])
-        reward_std = np.std(reward_pool)
-
-        if reward_std > 0:
-            reward_mean = np.mean(reward_pool)
-            # print("normalize_rewards : ", reward_std, "mean=", reward_mean)
-        for ep in range(self.nb_rollouts):
-            discounted_sum = 0
-            for i in reversed(range(self.episode_lengths[ep])):
-                discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
-                self.policy_returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
-
-    def normalize_discounted_rewards(self) -> None:
-        """
-        Apply a normalized and discounted sum of rewards to all samples of the episode
-        """
-        reward_mean = 0
-        reward_pool = []
-        self.discounted_sum_rewards()
-        for ep in range(self.nb_rollouts):
-            for i in range(self.episode_lengths[ep]):
-                reward_pool.append(self.policy_returns[ep, i])
-        reward_std = np.std(reward_pool)
-        if reward_std > 0:
-            reward_mean = np.mean(reward_pool)
-            # print("normalize_rewards : ", reward_std, "mean=", reward_mean)
-        for ep in range(self.nb_rollouts):
-            discounted_sum = 0
-            for i in reversed(range(self.episode_lengths[ep])):
-                discounted_sum = discounted_sum * self.gamma + self.rewards[ep, i]
-                self.policy_returns[ep, i] = (discounted_sum - reward_mean) / (reward_std + 1e-6)
-
-    def exponentiate_rewards(self, beta) -> None:
-        """
-        Apply an exponentiation factor to the rewards of all samples of all episodes
-        :param beta: the exponentiation factor
-        """
-        for ep in range(self.nb_rollouts):
-            for i in range(self.episode_lengths[ep]):
-                self.policy_returns[ep, i] = np.exp(self.rewards[ep, i] / beta)
+            self.target_values[ep] = self.policy_returns[ep] + self.values[ep]

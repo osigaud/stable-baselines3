@@ -100,6 +100,7 @@ class REINFORCE(PGAlgorithm):
             ),
         )
         self.normalize_advantage = normalize_advantage
+        self.clip_grad = False
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam
@@ -118,27 +119,29 @@ class REINFORCE(PGAlgorithm):
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
 
-        # Get all data in one go)
+        # Get all data in one go
         rollout_data = self.rollout_buffer.get_samples()
+
+        obs = rollout_data.observations
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
             actions = actions.long().flatten()
 
-        # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
-        values = values.flatten()
-
-        # Normalize advantage (not present in the original implementation)
         advantages = rollout_data.advantages
-        if self.normalize_advantage:
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        # print("advantages", advantages)
+        target_values = rollout_data.returns
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+        values = values.flatten()
 
         # Policy gradient loss
         policy_loss = -(advantages * log_prob).mean()
+        # print("policy loss", policy_loss)
 
         # Value loss using the TD(gae_lambda) target
-        value_loss = F.mse_loss(rollout_data.returns, values)
+        value_loss = F.mse_loss(target_values, values)
+        # print("value loss", value_loss)
 
         # Entropy loss favor exploration
         if entropy is None:
@@ -147,15 +150,19 @@ class REINFORCE(PGAlgorithm):
         else:
             entropy_loss = -th.mean(entropy)
 
-        loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+        compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
+
+        total_loss = policy_loss + compound_value_loss
+        # print("total loss", total_loss)
 
         # Optimization step
         self.policy.optimizer.zero_grad()
-        loss.backward()
+        total_loss.backward()
 
-        # Clip grad norm
-        th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-        self.policy.optimizer.step()
+        if self.clip_grad:
+            # Clip grad norm
+            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+            self.policy.optimizer.step()
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
