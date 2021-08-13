@@ -73,7 +73,7 @@ def plot_1d_policy(policy, env, deterministic, plot=True, figname="policy_1D.pdf
 
     states = []
     actions = []
-    for index_x, x in enumerate(np.linspace(x_min, x_max, num=definition)):
+    for _, x in enumerate(np.linspace(x_min, x_max, num=definition)):
         obs = np.array([x])
         action, _ = policy.predict(obs, deterministic=deterministic)
         states.append(obs)
@@ -173,7 +173,7 @@ def plot_nd_policy(policy, env, deterministic, plot=True, figname="stoch_actor.p
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[1], state_max[1], num=definition)):
             obs = np.array([[x, y]])
-            for i in range(2, len(state_min)):
+            for _ in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
             action, _ = policy.predict(obs, deterministic=deterministic)

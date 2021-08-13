@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from visu.visu_policies import final_show
 
 

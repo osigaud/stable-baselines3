@@ -10,12 +10,11 @@ from chrono import Chrono
 from visu.visu_critics import plot_cartpole_critic, plot_pendulum_critic
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 
-from stable_baselines3 import A2C, REINFORCE, TD3
+from stable_baselines3 import REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
 
 # from stable_baselines3.reinforce.custom_monitor import CustomMonitor
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.reinforce.loss_callback import LossCallback
+# from stable_baselines3.reinforce.loss_callback import LossCallback
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -40,7 +39,7 @@ def test_reinforce() -> None:
         file_name = grads[i] + "_" + args.env_name
         log_file_name = log_dir + file_name
         print(grads[i])
-        lcb = LossCallback(log_dir, file_name)
+        # lcb = LossCallback(log_dir, file_name)
         eval_env = gym.make(args.env_name)
         eval_callback = EvalCallback(
             eval_env,

@@ -1,10 +1,7 @@
-import os
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-from policies import GenericNet, PolicyWrapper
 from visu.visu_policies import final_show
 
 
@@ -39,7 +36,7 @@ def random_state_vector(env_name):
     """
     assert env_name in ["CartPoleContinuous-v0", "MountainCarContinuous-v0"], "unsupported environment"
     random_states = []
-    for i in range(2000):
+    for _ in range(2000):
         if env_name == "CartPoleContinuous-v0":
             random_states.append(random_cartpole_state())
         else:

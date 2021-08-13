@@ -96,7 +96,7 @@ def plot_nd_critic(
     for index_x, x in enumerate(np.linspace(state_min[0], state_max[0], num=definition)):
         for index_y, y in enumerate(np.linspace(state_min[1], state_max[1], num=definition)):
             obs = np.array([[x, y]])
-            for i in range(2, len(state_min)):
+            for _ in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
             with th.no_grad():
@@ -136,7 +136,7 @@ def plot_qfunction_1d(
     y_max = env.action_space.high[0]
 
     for index_x, x in enumerate(np.linspace(x_min, x_max, num=definition)):
-        for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
+        for index_y, _ in enumerate(np.linspace(y_min, y_max, num=definition)):
             # Be careful to fill the matrix in the right order
             obs = np.array([x])
             with th.no_grad():
