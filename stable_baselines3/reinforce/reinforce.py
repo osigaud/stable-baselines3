@@ -100,7 +100,7 @@ class REINFORCE(PGAlgorithm):
             ),
         )
         self.normalize_advantage = normalize_advantage
-        self.clip_grad = True
+        self.clip_grad = False
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam
@@ -168,6 +168,7 @@ class REINFORCE(PGAlgorithm):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/policy_loss", policy_loss.item())
         self.logger.record("train/value_loss", value_loss.item())
+        self.logger.record("train/entropy_loss", entropy_loss.item())
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
