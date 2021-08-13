@@ -100,7 +100,7 @@ class REINFORCE(PGAlgorithm):
             ),
         )
         self.normalize_advantage = normalize_advantage
-        self.clip_grad = False
+        self.clip_grad = True
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam

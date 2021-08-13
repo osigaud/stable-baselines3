@@ -12,6 +12,10 @@ from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendul
 
 from stable_baselines3 import REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.monitor import Monitor
+
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.env_util import make_vec_env
 
 # from stable_baselines3.reinforce.custom_monitor import CustomMonitor
 # from stable_baselines3.reinforce.loss_callback import LossCallback
@@ -33,18 +37,21 @@ def test_reinforce() -> None:
     args.nb_rollouts = 2
     # Create and wrap the environment
     env = gym.make(args.env_name)
+    # eval_env = gym.make(args.env_name)
+    # env_wrapped = Monitor(eval_env, log_dir)
+    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
         log_file_name = log_dir + file_name
         print(grads[i])
         # lcb = LossCallback(log_dir, file_name)
-        eval_env = gym.make(args.env_name)
         eval_callback = EvalCallback(
-            eval_env,
+            env_vec,
             best_model_save_path=log_dir + "bests/",
             log_path=log_dir,
             eval_freq=500,
+            n_eval_episodes=50,
             deterministic=True,
             render=False,
         )
