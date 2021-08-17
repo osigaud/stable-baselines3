@@ -132,6 +132,7 @@ class PGAlgorithm(BaseAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
+
     def reset_episodes(self):
         self.episode_num = 0
 

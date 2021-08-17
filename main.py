@@ -26,7 +26,7 @@ np.random.seed(0)
 random.seed(0)
 
 
-def plot_policies(model, env, env_name, gradient_name, final_string="post"):
+def plot_pol(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
     critname = env_name + "_critic_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":
@@ -47,9 +47,10 @@ def test_reinforce() -> None:
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
     args.env_name = "CartPole-v1"
-    args.gradients = ["discount","normalized discount"]
-    # args.gradients = ["sum","discount","normalize","normalized discount","n step","baseline","gae"]
-    args.nb_rollouts = 2
+    # args.gradients = ["n step","baseline","gae"]
+    # args.gradients = ["discount", "normalized discount"]
+    args.gradients = ["sum","discount","normalized sum","normalized discounted","n step","baseline","gae"]
+    args.nb_rollouts = 8
     # Create and wrap the environment
     env = gym.make(args.env_name)
     # eval_env = gym.make(args.env_name)
@@ -70,26 +71,30 @@ def test_reinforce() -> None:
             deterministic=True,
             render=False,
         )
+        policy_kwargs = dict(net_arch=[dict(pi=[100, 100], vf=[100, 100])])
 
         model = REINFORCE(
             "MlpPolicy",
             env,
             grads[i],
             beta=args.beta,
+            gamma=args.gamma,
+            learning_rate=args.lr_actor,
             nb_rollouts=args.nb_rollouts,
+            n_steps=args.n_steps,
             seed=1,
             verbose=1,
+            policy_kwargs = policy_kwargs,
             tensorboard_log=log_file_name,
         )
-
         if plot_policies:
-            plot_policies(model, env, args.env_name, grads[i], final_string="pre")
+            plot_pol(model, env, args.env_name, grads[i], final_string="pre")
 
         for rep in range(args.nb_repet):
-            model.learn(int(3000), reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+            model.learn(total_timesteps=4000, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
-            plot_policies(model, env, args.env_name, grads[i], final_string="post")
+            plot_pol(model, env, args.env_name, grads[i], final_string="post")
 
     chrono.stop()
     # plot_results(args)
@@ -100,6 +105,7 @@ def test2():
         "MlpPolicy",
         "CartPoleContinuous-v0",
         gradient_name="gae",
+        optimizer_name="sgd",
         seed=1,
         verbose=1,
     )

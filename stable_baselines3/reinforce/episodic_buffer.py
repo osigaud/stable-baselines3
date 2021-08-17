@@ -47,9 +47,11 @@ class EpisodicBuffer(BaseBuffer):
         beta: float = 1.0,
         nb_rollouts: int = 1,
         max_episode_steps: int = 1,
+        verbose=False,
     ):
-        print(nb_rollouts)
-        print(max_episode_steps)
+        if verbose:
+            print("nb rollouts:", nb_rollouts)
+            print("max episode length:",max_episode_steps)
         buffer_size = nb_rollouts * max_episode_steps
 
         super(EpisodicBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
@@ -200,15 +202,16 @@ class EpisodicBuffer(BaseBuffer):
             self.get_sum_rewards()
         elif self.gradient_name == "discount":
             self.get_discounted_sum_rewards()
-        elif self.gradient_name == "normalize":
-            self.get_normalized_rewards()
-        elif self.gradient_name == "normalized discount":
+        elif self.gradient_name == "normalized sum":
+            self.get_normalized_sum()
+        elif self.gradient_name == "normalized discounted":
             self.get_normalized_discounted_rewards()
         elif self.gradient_name == "baseline":
             self.get_target_values()
             self.get_discounted_sum_rewards()
             self.subtract_baseline()
         elif self.gradient_name == "n step":
+            self.get_target_values()
             self.get_n_step_return()
         elif self.gradient_name == "gae":
             self.process_gae()
@@ -232,6 +235,8 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.sum(self.rewards[ep])
+        print(self.rewards.shape, self.rewards)
+        print("sums:", self.policy_returns.shape, self.policy_returns)
 
     def subtract_baseline(self) -> None:
         """
@@ -265,6 +270,14 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep] = self.rewards[ep]
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
+    def get_normalized_sum(self) -> None:
+        """
+        Normalize rewards of all samples of all episodes
+        """
+        self.get_sum_rewards()
+        print("sums:", self.policy_returns.shape, self.policy_returns)
         self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
 
     def get_normalized_discounted_rewards(self) -> None:

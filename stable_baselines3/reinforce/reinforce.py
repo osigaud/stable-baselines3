@@ -52,15 +52,15 @@ class REINFORCE(PGAlgorithm):
         beta: float = 0.0,
         nb_rollouts: int = 1,
         max_episode_steps: Optional[int] = None,
-        learning_rate: Union[float, Schedule] = 7e-4,
-        n_steps: int = 1,
+        learning_rate: Union[float, Schedule] = 0.01,
+        n_steps: int = 5,
         gamma: float = 0.99,
         gae_lambda: float = 1.0,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
+        optimizer_name: str = "adam",
         rms_prop_eps: float = 1e-5,
-        use_rms_prop: bool = False,
         normalize_advantage: bool = False,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -70,7 +70,6 @@ class REINFORCE(PGAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
-
         super(REINFORCE, self).__init__(
             policy,
             env,
@@ -91,7 +90,7 @@ class REINFORCE(PGAlgorithm):
             device=device,
             create_eval_env=create_eval_env,
             seed=seed,
-            _init_setup_model=False,
+            _init_setup_model=_init_setup_model,
             supported_action_spaces=(
                 spaces.Box,
                 spaces.Discrete,
@@ -104,12 +103,13 @@ class REINFORCE(PGAlgorithm):
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam
-        if use_rms_prop and "optimizer_class" not in self.policy_kwargs:
-            self.policy_kwargs["optimizer_class"] = th.optim.RMSprop
-            self.policy_kwargs["optimizer_kwargs"] = dict(alpha=0.99, eps=rms_prop_eps, weight_decay=0)
-
-        if _init_setup_model:
-            self._setup_model()
+        if "optimizer_class" not in self.policy_kwargs:
+            if optimizer_name == "rmsprop":
+                self.policy_kwargs["optimizer_class"] = th.optim.RMSprop
+                self.policy_kwargs["optimizer_kwargs"] = dict(alpha=0.99, eps=rms_prop_eps, weight_decay=0)
+            elif optimizer_name == "sgd":
+                self.policy_kwargs["optimizer_class"] = th.optim.SGD
+                # TODO: missing kwargs?
 
     def train(self) -> None:
         """
@@ -129,7 +129,8 @@ class REINFORCE(PGAlgorithm):
             actions = actions.long().flatten()
 
         advantages = rollout_data.advantages
-        # print("advantages", advantages)
+        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
+            # print("advantages", advantages.shape, advantages)
         target_values = rollout_data.returns
         # TODO: avoid second computation of everything because of the gradient
         values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
@@ -139,20 +140,24 @@ class REINFORCE(PGAlgorithm):
         policy_loss = -(advantages * log_prob).mean()
         # print("policy loss", policy_loss)
 
-        # Value loss using the TD(gae_lambda) target
-        value_loss = F.mse_loss(target_values, values)
-        # print("value loss", value_loss)
+        if self.gradient_name == "baseline" or self.gradient_name == "gae" or self.gradient_name == "n step":
+            # Value loss using the TD(gae_lambda) target
+            value_loss = F.mse_loss(target_values, values)
+            # print("value loss", value_loss)
 
-        # Entropy loss favor exploration
-        if entropy is None:
-            # Approximate entropy when no analytical form
-            entropy_loss = -th.mean(-log_prob)
+            # Entropy loss favor exploration
+            if entropy is None:
+                # Approximate entropy when no analytical form
+                entropy_loss = -th.mean(-log_prob)
+            else:
+                entropy_loss = -th.mean(entropy)
+
+            compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
+            total_loss = policy_loss + compound_value_loss
+            self.logger.record("train/value_loss", value_loss.item())
+            self.logger.record("train/entropy_loss", entropy_loss.item())
         else:
-            entropy_loss = -th.mean(entropy)
-
-        compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
-
-        total_loss = policy_loss + compound_value_loss
+            total_loss = policy_loss
         # print("total loss", total_loss)
 
         # Optimization step
@@ -162,13 +167,11 @@ class REINFORCE(PGAlgorithm):
         if self.clip_grad:
             # Clip grad norm
             th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-            self.policy.optimizer.step()
+        self.policy.optimizer.step()
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/policy_loss", policy_loss.item())
-        self.logger.record("train/value_loss", value_loss.item())
-        self.logger.record("train/entropy_loss", entropy_loss.item())
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
