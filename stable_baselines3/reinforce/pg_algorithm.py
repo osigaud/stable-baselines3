@@ -13,7 +13,7 @@ from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
-from stable_baselines3.reinforce.expert_policies import CMC_expert_policy
+from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 
 
 class PGAlgorithm(BaseAlgorithm):
@@ -132,7 +132,6 @@ class PGAlgorithm(BaseAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
-
     def reset_episodes(self):
         self.episode_num = 0
 
@@ -152,6 +151,7 @@ class PGAlgorithm(BaseAlgorithm):
         :param callback: Callback that will be called at each step
             (and at the beginning and end of the rollout)
         :param rollout_buffer: Buffer to fill with rollouts
+        :param expert_pol: Whether uses an expert policy or the learned one
         :return: True if function returned with at least `n_rollout_steps`
             collected, False if callback terminated rollout prematurely.
         """
@@ -170,8 +170,7 @@ class PGAlgorithm(BaseAlgorithm):
                 if not expert_pol:
                     actions, _, _ = self.policy.forward(obs_tensor)
                 else:
-                    if env_name == "MountainCarContinuous":
-                        actions = CMC_expert_policy(obs_tensor)
+                    actions = continuous_mountain_car_expert_policy(self.num_timesteps, var=False)
             if not expert_pol:
                 actions = actions.cpu().numpy()
 
@@ -231,6 +230,7 @@ class PGAlgorithm(BaseAlgorithm):
         tb_log_name: str = "PGAlgorithm",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
+        expert_pol: bool = False,
     ) -> "PGAlgorithm":
         iteration = 0
 
@@ -241,7 +241,7 @@ class PGAlgorithm(BaseAlgorithm):
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_timesteps:
-            keep_training = self.collect_rollouts(self.env, callback, self.rollout_buffer)
+            keep_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
 
             if keep_training is False:
                 break

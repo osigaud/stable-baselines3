@@ -38,6 +38,19 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
     else:
         plot_2d_policy(model.policy, env, deterministic=True)
 
+
+def init_test_reinforce():
+    model = REINFORCE(
+        "MlpPolicy",
+        "CartPoleContinuous-v0",
+        gradient_name="gae",
+        optimizer_name="sgd",
+        seed=1,
+        verbose=1,
+    )
+    model.learn(int(1e5))
+
+
 def test_reinforce() -> None:
     plot_policies = False
     args = get_args()
@@ -100,17 +113,60 @@ def test_reinforce() -> None:
     # plot_results(args)
 
 
-def test2():
-    model = REINFORCE(
-        "MlpPolicy",
-        "CartPoleContinuous-v0",
-        gradient_name="gae",
-        optimizer_name="sgd",
-        seed=1,
-        verbose=1,
-    )
-    model.learn(int(1e5))
+def test_imitation_cmc() -> None:
+    plot_policies = False
+    args = get_args()
+    chrono = Chrono()
+    # Create log dir
+    log_dir = "data/save/"
+    os.makedirs(log_dir, exist_ok=True)
+    args.env_name = "MountainCarContinuous-v0"
+    args.gradients = ["sum","discount","normalized sum","normalized discounted","n step","baseline","gae"]
+    args.nb_rollouts = 8
+    # Create and wrap the environment
+    env = gym.make(args.env_name)
+    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    grads = args.gradients
+    for i in range(len(grads)):
+        file_name = grads[i] + "_" + args.env_name
+        log_file_name = log_dir + file_name
+        print(grads[i])
+        eval_callback = EvalCallback(
+            env_vec,
+            best_model_save_path=log_dir + "bests/",
+            log_path=log_dir,
+            eval_freq=500,
+            n_eval_episodes=50,
+            deterministic=True,
+            render=False,
+        )
+        policy_kwargs = dict(net_arch=[dict(pi=[100, 100], vf=[100, 100])])
 
+        model = REINFORCE(
+            "MlpPolicy",
+            env,
+            grads[i],
+            beta=args.beta,
+            gamma=args.gamma,
+            learning_rate=args.lr_actor,
+            nb_rollouts=args.nb_rollouts,
+            n_steps=args.n_steps,
+            seed=1,
+            verbose=1,
+            policy_kwargs = policy_kwargs,
+            tensorboard_log=log_file_name,
+        )
+        if plot_policies:
+            plot_pol(model, env, args.env_name, grads[i], final_string="pre")
+
+        model.learn(total_timesteps=900, callback=eval_callback, expert_pol=True)
+        for rep in range(args.nb_repet):
+            model.learn(total_timesteps=4000, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+
+        if plot_policies:
+            plot_pol(model, env, args.env_name, grads[i], final_string="post")
+
+    chrono.stop()
 
 if __name__ == "__main__":
     # test2()

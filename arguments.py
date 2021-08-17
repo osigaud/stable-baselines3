@@ -54,7 +54,7 @@ def get_args():
     parser.add_argument("--team_name", type=str, default="default_team", help="team name")
     parser.add_argument("--deterministic_eval", type=bool, default=True, help="deterministic policy evaluation?")
     # study parameters
-    parser.add_argument("--nb_repet", type=int, default=10, help="number of repetitions to get statistics")
+    parser.add_argument("--nb_repet", type=int, default=1, help="number of repetitions to get statistics")
     parser.add_argument("--nb_rollouts", type=int, default=10, help="number of rollouts in a MC batch")
     parser.add_argument("--log_interval", type=int, default=100, help="number of steps between two logs")
     # algo settings
