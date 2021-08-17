@@ -83,7 +83,7 @@ class EpisodicBuffer(BaseBuffer):
         # episode length storage, needed for episodes which has less steps than the maximum length
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
-        assert self.n_envs == 1, "Episode buffer only support single env for now"
+        assert self.n_envs == 1, "Episode buffer only supports single env for now"
 
         self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
@@ -127,6 +127,7 @@ class EpisodicBuffer(BaseBuffer):
         if done or self.episode_steps >= self.max_episode_steps:
             self.store_episode()
             self.episode_steps = 0
+        # print("eb, l130", done, reward, self.current_idx, self.episode_steps, self.episode_idx)
 
     def get_samples(self) -> RolloutBufferSamples:
         assert self.full, "digging into a non full batch"
@@ -235,8 +236,8 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.sum(self.rewards[ep])
-        print(self.rewards.shape, self.rewards)
-        print("sums:", self.policy_returns.shape, self.policy_returns)
+        # print("rewards", self.rewards.shape, self.rewards)
+        # print("sums:", self.policy_returns.shape, self.policy_returns)
 
     def subtract_baseline(self) -> None:
         """

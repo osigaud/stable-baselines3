@@ -13,6 +13,7 @@ from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
+from stable_baselines3.reinforce.expert_policies import CMC_expert_policy
 
 
 class PGAlgorithm(BaseAlgorithm):
@@ -104,7 +105,6 @@ class PGAlgorithm(BaseAlgorithm):
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
-
         if self.env is not None:
             max_episode_steps = get_time_limit(self.env, self.max_episode_steps)
         else:
@@ -141,6 +141,7 @@ class PGAlgorithm(BaseAlgorithm):
         env: VecEnv,
         callback: BaseCallback,
         rollout_buffer: EpisodicBuffer,
+        expert_pol: bool = False,
     ) -> bool:
         """
         Collect experiences using the current policy and fill a ``RolloutBuffer``.
@@ -157,6 +158,7 @@ class PGAlgorithm(BaseAlgorithm):
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         rollout_buffer.reset()
+        # print("last_obs:", self._last_obs)
 
         callback.on_rollout_start()
 
@@ -165,8 +167,13 @@ class PGAlgorithm(BaseAlgorithm):
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
-                actions, values, log_probs = self.policy.forward(obs_tensor)
-            actions = actions.cpu().numpy()
+                if not expert_pol:
+                    actions, _, _ = self.policy.forward(obs_tensor)
+                else:
+                    if env_name == "MountainCarContinuous":
+                        actions = CMC_expert_policy(obs_tensor)
+            if not expert_pol:
+                actions = actions.cpu().numpy()
 
             # Rescale and perform action
             clipped_actions = actions
@@ -175,7 +182,7 @@ class PGAlgorithm(BaseAlgorithm):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
-
+            # print("in pg, l178:", dones, self.num_timesteps)
             self.num_timesteps += env.num_envs
 
             # Give access to local variables
@@ -191,7 +198,7 @@ class PGAlgorithm(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(self._last_obs, actions, rewards, dones, self._last_episode_starts, infos)
+            rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, dones, infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -199,16 +206,6 @@ class PGAlgorithm(BaseAlgorithm):
                 # callback.on_episode_end() # Only possible if callback = LossCallBack
             self._last_obs = new_obs
             self._last_episode_starts = dones
-
-        # Note(antonin): probably not needed as we are episode based (and not handling timeouts)
-        # and here the new obs is not the final observation but the
-        # first observation of the next episode
-        # the terminal one can be found in info["terminal_observation"]
-        # see https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html
-        with th.no_grad():
-            # Compute value for the last timestep
-            obs_tensor = obs_as_tensor(new_obs, self.device)
-            _, values, _ = self.policy.forward(obs_tensor)
 
         rollout_buffer.post_processing()
 
