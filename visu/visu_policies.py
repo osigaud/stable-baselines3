@@ -54,7 +54,7 @@ def plot_policy(policy, env, deterministic, name, study_name, default_string, nu
         plot_nd_policy(policy, env, deterministic, plot, figname=actor_picture_name)
 
 
-def plot_1d_policy(policy, env, deterministic, plot=True, figname="policy_1D.pdf", save_figure=True) -> None:
+def plot_1d_policy(policy, env, deterministic, plot=True, figname="1D_actor.pdf", save_figure=True) -> None:
     """
     visualization of the policy for a 1D environment like 1D Toy with continuous actions
     :param policy: the policy to be plotted
@@ -85,7 +85,7 @@ def plot_1d_policy(policy, env, deterministic, plot=True, figname="policy_1D.pdf
     final_show(save_figure, plot, figname, x_label, y_label, "1D Policy", "/plots/")
 
 
-def plot_2d_policy(policy, env, deterministic, plot=True, figname="stoch_actor.pdf", save_figure=True) -> None:
+def plot_2d_policy(policy, env, deterministic, plot=True, figname="2d_actor.pdf", save_figure=True) -> None:
     """
     Plot a policy for a 2D environment like continuous mountain car
     :param policy: the policy to be plotted
@@ -151,7 +151,7 @@ def plot_bernoulli_policy(policy, env, plot=True, figure_name="proba_actor.pdf",
     final_show(save_figure, plot, figure_name, x_label, y_label, "Actor phase portrait", "/plots/")
 
 
-def plot_nd_policy(policy, env, deterministic, plot=True, figname="stoch_actor.pdf", save_figure=True) -> None:
+def plot_nd_policy(policy, env, deterministic, plot=True, figname="nd_actor.pdf", save_figure=True) -> None:
     """
     Plot a policy for a ND environment
     :param policy: the policy to be plotted
@@ -187,7 +187,7 @@ def plot_nd_policy(policy, env, deterministic, plot=True, figname="stoch_actor.p
     final_show(save_figure, plot, figname, x_label, y_label, "Actor phase portrait", "/plots/")
 
 
-def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="stoch_actor.pdf", save_figure=True) -> None:
+def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="cartpole_actor.pdf", save_figure=True) -> None:
     """
     Plot a policy for a cartpole environment
     :param policy: the policy to be plotted

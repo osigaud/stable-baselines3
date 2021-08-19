@@ -7,18 +7,14 @@ import numpy as np
 import torch
 from arguments import get_args
 from chrono import Chrono
-from visu.visu_critics import plot_cartpole_critic, plot_pendulum_critic
+from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 
 from stable_baselines3 import REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-
-# from stable_baselines3.reinforce.custom_monitor import CustomMonitor
-# from stable_baselines3.reinforce.loss_callback import LossCallback
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -36,7 +32,8 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
         plot_cartpole_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
         plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     else:
-        plot_2d_policy(model.policy, env, deterministic=True)
+        plot_2d_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
+        plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
 
 
 def init_test_reinforce():
@@ -59,11 +56,12 @@ def test_reinforce() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
-    args.env_name = "CartPole-v1"
+    # args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount", "normalized discount"]
-    args.gradients = ["sum","discount","normalized sum","normalized discounted","n step","baseline","gae"]
-    args.nb_rollouts = 8
+    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
+    use_baseline = False
+    args.nb_rollouts = 80
     # Create and wrap the environment
     env = gym.make(args.env_name)
     # eval_env = gym.make(args.env_name)
@@ -93,18 +91,18 @@ def test_reinforce() -> None:
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
-            nb_rollouts=args.nb_rollouts,
             n_steps=args.n_steps,
             seed=1,
             verbose=1,
-            policy_kwargs = policy_kwargs,
+            policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
+            substract_baseline=use_baseline,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
 
         for rep in range(args.nb_repet):
-            model.learn(total_timesteps=4000, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+            model.learn(nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
@@ -114,14 +112,16 @@ def test_reinforce() -> None:
 
 
 def test_imitation_cmc() -> None:
-    plot_policies = False
+    plot_policies = True
     args = get_args()
     chrono = Chrono()
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     args.env_name = "MountainCarContinuous-v0"
-    args.gradients = ["sum","discount","normalized sum","normalized discounted","n step","baseline","gae"]
+    #args.gradients = ["discount", "normalized sum", "normalized discounted", "sum", "n step", "gae"]
+    args.gradients = ["discount"]
+    use_baseline = False
     args.nb_rollouts = 8
     # Create and wrap the environment
     env = gym.make(args.env_name)
@@ -140,7 +140,7 @@ def test_imitation_cmc() -> None:
             deterministic=True,
             render=False,
         )
-        policy_kwargs = dict(net_arch=[dict(pi=[100, 100], vf=[100, 100])])
+        policy_kwargs = dict(net_arch=[dict(pi=[10, 10], vf=[10, 10])])
 
         model = REINFORCE(
             "MlpPolicy",
@@ -149,25 +149,37 @@ def test_imitation_cmc() -> None:
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
-            nb_rollouts=args.nb_rollouts,
             n_steps=args.n_steps,
             seed=1,
             verbose=1,
-            policy_kwargs = policy_kwargs,
+            policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
+            substract_baseline=use_baseline,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
 
-        model.learn(total_timesteps=900, callback=eval_callback, expert_pol=True)
+        eval_callback2 = EvalCallback(
+            env_vec,
+            best_model_save_path=log_dir + "bests/",
+            log_path=log_dir,
+            eval_freq=500000,
+            n_eval_episodes=1,
+            deterministic=True,
+            render=False,
+        )
+        model.collect_expert_rollout(nb_rollouts=10, callback=eval_callback2)
+        plot_pol(model, env, args.env_name, grads[i], final_string="imit")
         for rep in range(args.nb_repet):
-            model.learn(total_timesteps=4000, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+            model.learn(nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
 
     chrono.stop()
 
+
 if __name__ == "__main__":
-    # test2()
+    # test_init()
     test_reinforce()
+    # test_imitation_cmc()

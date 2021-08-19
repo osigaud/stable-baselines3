@@ -43,7 +43,6 @@ class EpisodicBuffer(BaseBuffer):
         gamma: float = 0.99,
         n_envs: int = 1,
         n_steps: int = 5,
-        gradient_name: str = "discount",
         beta: float = 1.0,
         nb_rollouts: int = 1,
         max_episode_steps: int = 1,
@@ -56,7 +55,6 @@ class EpisodicBuffer(BaseBuffer):
 
         super(EpisodicBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
-        self.gradient_name = gradient_name
         self.gae_lambda = gae_lambda
         self.n_steps = n_steps
         self.gamma = gamma
@@ -130,7 +128,6 @@ class EpisodicBuffer(BaseBuffer):
         # print("eb, l130", done, reward, self.current_idx, self.episode_steps, self.episode_idx)
 
     def get_samples(self) -> RolloutBufferSamples:
-        assert self.full, "digging into a non full batch"
 
         total_steps = sum(self.episode_lengths)
         all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
@@ -159,22 +156,15 @@ class EpisodicBuffer(BaseBuffer):
     def store_episode(self) -> None:
         """
         Increment episode counter
-        and reset transition pointer.
+        and reset current episode index.
         """
         # add episode length to length storage
         self.episode_lengths[self.episode_idx] = self.current_idx
-
         self.episode_idx += 1
-        if self.episode_idx == self.nb_rollouts:
-            self.full = True
-            self.episode_idx = 0
-        # reset transition pointer
         self.current_idx = 0
 
     @property
     def n_episodes_stored(self) -> int:
-        if self.full:
-            return self.nb_rollouts
         return self.episode_idx
 
     def size(self) -> int:
@@ -189,35 +179,7 @@ class EpisodicBuffer(BaseBuffer):
         """
         self.episode_idx = 0
         self.current_idx = 0
-        self.full = False
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
-
-    def post_processing(self) -> None:
-        """
-        Post-processing step: compute the return using different gradient computation criteria
-        For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
-        """
-        if self.gradient_name == "beta":
-            self.get_exponentiated_rewards(self.beta)
-        elif self.gradient_name == "sum":
-            self.get_sum_rewards()
-        elif self.gradient_name == "discount":
-            self.get_discounted_sum_rewards()
-        elif self.gradient_name == "normalized sum":
-            self.get_normalized_sum()
-        elif self.gradient_name == "normalized discounted":
-            self.get_normalized_discounted_rewards()
-        elif self.gradient_name == "baseline":
-            self.get_target_values()
-            self.get_discounted_sum_rewards()
-            self.subtract_baseline()
-        elif self.gradient_name == "n step":
-            self.get_target_values()
-            self.get_n_step_return()
-        elif self.gradient_name == "gae":
-            self.process_gae()
-        else:
-            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
 
     def get_discounted_sum_rewards(self) -> None:
         """

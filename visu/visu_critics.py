@@ -229,7 +229,7 @@ def plot_cartpole_critic(
     env,
     deterministic,
     plot=True,
-    figname="vfunction.pdf",
+    figname="cartpole_critic.pdf",
     foldername="/plots/",
     save_figure=True,
 ) -> None:

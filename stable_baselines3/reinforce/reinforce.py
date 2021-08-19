@@ -1,15 +1,25 @@
-from typing import Any, Dict, Optional, Type, Union
+import time
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+import gym
+import numpy as np
 import torch as th
+from torch.nn import functional as func
+
 from gym import spaces
-from torch.nn import functional as F
 
-from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.reinforce.pg_algorithm import PGAlgorithm
+from stable_baselines3.common.utils import obs_as_tensor, safe_mean
+from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.her.her_replay_buffer import get_time_limit
+from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
+from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 
 
-class REINFORCE(PGAlgorithm):
+class REINFORCE(BaseAlgorithm):
     """
     REINFORCE
 
@@ -31,7 +41,6 @@ class REINFORCE(PGAlgorithm):
     :param max_grad_norm: The maximum value for the gradient clipping
     :param rms_prop_eps: RMSProp epsilon. It stabilizes square root computation in denominator
         of RMSProp update
-    :param use_rms_prop: Whether to use RMSprop (default) or Adam as optimizer
     :param normalize_advantage: Whether to normalize or not the advantage
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -50,7 +59,6 @@ class REINFORCE(PGAlgorithm):
         env: Union[GymEnv, str],
         gradient_name: str = "sum",
         beta: float = 0.0,
-        nb_rollouts: int = 1,
         max_episode_steps: Optional[int] = None,
         learning_rate: Union[float, Schedule] = 0.01,
         n_steps: int = 5,
@@ -62,6 +70,7 @@ class REINFORCE(PGAlgorithm):
         optimizer_name: str = "adam",
         rms_prop_eps: float = 1e-5,
         normalize_advantage: bool = False,
+        policy_base: Type[BasePolicy] = ActorCriticPolicy,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -69,28 +78,19 @@ class REINFORCE(PGAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
+        substract_baseline: bool = False,
     ):
         super(REINFORCE, self).__init__(
             policy,
             env,
             learning_rate=learning_rate,
-            gradient_name=gradient_name,
-            beta=beta,
-            nb_rollouts=nb_rollouts,
-            max_episode_steps=max_episode_steps,
-            n_steps=n_steps,
-            gamma=gamma,
-            gae_lambda=gae_lambda,
-            ent_coef=ent_coef,
-            vf_coef=vf_coef,
-            max_grad_norm=max_grad_norm,
+            policy_base=policy_base,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
             create_eval_env=create_eval_env,
             seed=seed,
-            _init_setup_model=_init_setup_model,
             supported_action_spaces=(
                 spaces.Box,
                 spaces.Discrete,
@@ -98,8 +98,19 @@ class REINFORCE(PGAlgorithm):
                 spaces.MultiBinary,
             ),
         )
+        self.gradient_name = gradient_name
+        self.beta = beta
+        self.max_episode_steps = max_episode_steps
+        self.n_steps = n_steps
+        self.gamma = gamma
+        self.gae_lambda = gae_lambda
+        self.ent_coef = ent_coef
+        self.vf_coef = vf_coef
+        self.max_grad_norm = max_grad_norm
         self.normalize_advantage = normalize_advantage
         self.clip_grad = False
+        self.substract_baseline = substract_baseline
+        self.episode_num = 0
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam
@@ -110,6 +121,105 @@ class REINFORCE(PGAlgorithm):
             elif optimizer_name == "sgd":
                 self.policy_kwargs["optimizer_class"] = th.optim.SGD
                 # TODO: missing kwargs?
+
+        if _init_setup_model:
+            self._setup_model()
+
+    def _setup_model(self) -> None:
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+        if self.env is not None:
+            max_episode_steps = get_time_limit(self.env, self.max_episode_steps)
+        else:
+            max_episode_steps = self.max_episode_steps
+
+        self.policy = self.policy_class(  # pytype:disable=not-instantiable
+            self.observation_space,
+            self.action_space,
+            self.lr_schedule,
+            use_sde=False,
+            **self.policy_kwargs  # pytype:disable=not-instantiable
+        )
+        self.policy = self.policy.to(self.device)
+
+    def reset_episodes(self):
+        self.episode_num = 0
+
+    def collect_rollouts(
+        self,
+        env: VecEnv,
+        callback: BaseCallback,
+        rollout_buffer: EpisodicBuffer,
+        expert_pol: bool = False,
+    ) -> bool:
+        """
+        Collect experiences using the current policy and fill a ``RolloutBuffer``.
+        The term rollout here refers to the model-free notion and should not
+        be used with the concept of rollout used in model-based RL or planning.
+
+        :param env: The training environment
+        :param callback: Callback that will be called at each step
+            (and at the beginning and end of the rollout)
+        :param rollout_buffer: Buffer to fill with rollouts
+        :param expert_pol: Whether uses an expert policy or the learned one
+        :return: True if function returned with at least `n_rollout_steps`
+            collected, False if callback terminated rollout prematurely.
+        """
+        assert self._last_obs is not None, "No previous observation was provided"
+        n_steps = 0
+        rollout_buffer.reset()
+        # print("last_obs:", self._last_obs)
+
+        callback.on_rollout_start()
+
+        while rollout_buffer.n_episodes_stored < self.nb_rollouts:
+            # print("in R, l190:", rollout_buffer.n_episodes_stored, self.nb_rollouts)
+            with th.no_grad():
+                # Convert to pytorch tensor or to TensorDict
+                obs_tensor = obs_as_tensor(self._last_obs, self.device)
+                if not expert_pol:
+                    actions, _, _ = self.policy.forward(obs_tensor)
+                else:
+                    actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
+                    # print("pg l177:", n_steps, actions)
+            if not expert_pol:
+                actions = actions.cpu().numpy()
+
+            # Rescale and perform action
+            clipped_actions = actions
+            # Clip the actions to avoid out of bound error
+            if isinstance(self.action_space, gym.spaces.Box):
+                clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
+
+            new_obs, rewards, dones, infos = env.step(clipped_actions)
+            # print("in pg, l178:", dones, self.num_timesteps)
+            self.num_timesteps += env.num_envs
+
+            # Give access to local variables
+            callback.update_locals(locals())
+            if callback.on_step() is False:
+                return False
+
+            self._update_info_buffer(infos)
+            n_steps += 1
+
+            if isinstance(self.action_space, gym.spaces.Discrete):
+                # Reshape in case of discrete action
+                actions = actions.reshape(-1, 1)
+
+            old_episode_idx = rollout_buffer.n_episodes_stored
+            rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, dones, infos)
+            new_episode_idx = rollout_buffer.n_episodes_stored
+            if new_episode_idx > old_episode_idx:
+                self.episode_num += 1
+                self.logger.record("time/episode", self.episode_num, exclude="tensorboard")
+                # callback.on_episode_end() # Only possible if callback = LossCallBack
+            self._last_obs = new_obs
+            self._last_episode_starts = dones
+
+        callback.on_rollout_end()
+        # print("in pg, l235: exit")
+        return True
 
     def train(self) -> None:
         """
@@ -142,7 +252,7 @@ class REINFORCE(PGAlgorithm):
 
         if self.gradient_name == "baseline" or self.gradient_name == "gae" or self.gradient_name == "n step":
             # Value loss using the TD(gae_lambda) target
-            value_loss = F.mse_loss(target_values, values)
+            value_loss = func.mse_loss(target_values, values)
             # print("value loss", value_loss)
 
             # Entropy loss favor exploration
@@ -175,27 +285,135 @@ class REINFORCE(PGAlgorithm):
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
+    def init_buffer(self, nb_rollouts):
+        self.rollout_buffer = EpisodicBuffer(
+            self.observation_space,
+            self.action_space,
+            self.device,
+            self.gae_lambda,
+            self.gamma,
+            self.n_envs,
+            self.n_steps,
+            self.beta,
+            nb_rollouts,
+            max_episode_steps=self.max_episode_steps,
+        )
+
     def learn(
         self,
-        total_timesteps: int,
+        nb_rollouts: int,
         callback: MaybeCallback = None,
-        log_interval: int = 100,
+        log_interval: int = 1,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "PGAlgorithm",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        expert_pol: bool = False,
+    ) -> "BaseAlgorithm":
+        iteration = 0
+
+        total_timesteps = nb_rollouts * self.max_episode_steps
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+        )
+        self.init_buffer(nb_rollouts)
+        callback.on_training_start(locals(), globals())
+
+        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
+        if not collect_ok:
+            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+
+        self.post_processing()
+        self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
+        # Display training infos
+        if log_interval is not None and iteration % log_interval == 0:
+            fps = int(self.num_timesteps / (time.time() - self.start_time))
+            self.logger.record("time/iterations", iteration, exclude="tensorboard")
+            if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+                self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+                self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("time/fps", fps)
+            self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+            self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
+            self.logger.dump(step=self.num_timesteps)
+        self.train()
+
+        callback.on_training_end()
+        return self
+
+    def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
+        state_dicts = ["policy", "policy.optimizer"]
+        return state_dicts, []
+
+    def collect_expert_rollout(
+        self,
+        nb_rollouts: int,
+        callback: MaybeCallback = None,
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
         n_eval_episodes: int = 5,
         tb_log_name: str = "REINFORCE",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> PGAlgorithm:
+    ) -> None:
 
-        return super(REINFORCE, self).learn(
-            total_timesteps=total_timesteps,
-            callback=callback,
-            log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
-            tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
-            reset_num_timesteps=reset_num_timesteps,
+        total_timesteps = nb_rollouts * self.max_episode_steps
+        total_timesteps, _ = self._setup_learn(
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
+        self.init_buffer(nb_rollouts)
+        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
+        if not collect_ok:
+            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+        self.post_processing()
+        rollout_data = self.rollout_buffer.get_samples()
+
+        obs = rollout_data.observations
+        actions = rollout_data.actions
+        if isinstance(self.action_space, spaces.Discrete):
+            # Convert discrete action from float to long
+            actions = actions.long().flatten()
+
+        advantages = rollout_data.advantages
+        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
+        # print("expert actions:", actions.shape, actions)
+        print("expert advantages:", advantages.shape, advantages)
+        target_values = rollout_data.returns
+        # TODO: avoid second computation of everything because of the gradient
+        _, log_prob, _ = self.policy.evaluate_actions(obs, actions)
+
+        # Policy gradient loss
+        policy_loss = -(advantages * log_prob).mean()
+        # print("policy loss", policy_loss)
+
+        # Optimization step
+        self.policy.optimizer.zero_grad()
+        policy_loss.backward()
+        self.policy.optimizer.step()
+
+    def post_processing(self) -> None:
+        """
+        Post-processing step: compute the return using different gradient computation criteria
+        For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
+        """
+        if self.substract_baseline:
+            self.rollout_buffer.get_target_values()
+
+        if self.gradient_name == "beta":
+            self.rollout_buffer.get_exponentiated_rewards(self.beta)
+        elif self.gradient_name == "sum":
+            self.rollout_buffer.get_sum_rewards()
+        elif self.gradient_name == "discount":
+            self.rollout_buffer.get_discounted_sum_rewards()
+        elif self.gradient_name == "normalized sum":
+            self.rollout_buffer.get_normalized_sum()
+        elif self.gradient_name == "normalized discounted":
+            self.rollout_buffer.get_normalized_discounted_rewards()
+        elif self.gradient_name == "n step":
+            self.rollout_buffer.get_n_step_return()
+        elif self.gradient_name == "gae":
+            self.rollout_buffer.process_gae()
+        else:
+            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
