@@ -11,6 +11,7 @@ from arguments import get_args
 from chrono import Chrono
 from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
+from visu.visu_trajectories import plot_trajectory
 
 from stable_baselines3 import REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
@@ -26,17 +27,22 @@ random.seed(0)
 
 def plot_pol(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
-    critname = env_name + "_critic_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":
         plot_pendulum_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
-        plot_pendulum_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
         plot_cartpole_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
-        plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     else:
         plot_2d_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
-        plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
 
+
+def plot_crit(model, env, env_name, gradient_name, final_string="post"):
+    critname = env_name + "_critic_" + gradient_name + "_" + final_string + ".pdf"
+    if env_name == "Pendulum-v0":
+        plot_pendulum_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+    elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
+        plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+    else:
+        plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
 
 def init_test_reinforce():
     model = REINFORCE(
@@ -63,7 +69,7 @@ def test_reinforce() -> None:
     args.gradients = ["discount"]
     # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
     use_baseline = False
-    args.nb_rollouts = 80
+    args.nb_rollouts = 800
     args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
@@ -107,6 +113,7 @@ def test_reinforce() -> None:
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
+            plot_crit(model, env, args.env_name, grads[i], final_string="pre")
 
         for rep in range(args.nb_repet):
             model.learn(nb_epochs=10, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
@@ -114,6 +121,7 @@ def test_reinforce() -> None:
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
+            plot_crit(model, env, args.env_name, grads[i], final_string="post")
 
     chrono.stop()
     # plot_results(args)
@@ -127,7 +135,7 @@ def test_imitation_cmc() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     args.env_name = "MountainCarContinuous-v0"
-    #args.gradients = ["discount", "normalized sum", "normalized discounted", "sum", "n step", "gae"]
+    # args.gradients = ["discount", "normalized sum", "normalized discounted", "sum", "n step", "gae"]
     args.gradients = ["discount"]
     use_baseline = False
     args.nb_rollouts = 8
@@ -149,7 +157,7 @@ def test_imitation_cmc() -> None:
             deterministic=True,
             render=False,
         )
-        policy_kwargs = dict(net_arch=[dict(pi=[10, 10], vf=[10, 10])])
+        policy_kwargs = dict(net_arch=[dict(pi=[5, 5], vf=[10, 10])])
 
         model = REINFORCE(
             "MlpPolicy",
@@ -179,10 +187,13 @@ def test_imitation_cmc() -> None:
             deterministic=True,
             render=False,
         )
-        model.collect_expert_rollout(nb_rollouts=10, callback=eval_callback2)
+        model.collect_expert_rollout(nb_rollouts=20, callback=eval_callback2)
+        rollout_data = model.rollout_buffer.get_samples()
+        plot_trajectory(rollout_data, env, 1)
         plot_pol(model, env, args.env_name, grads[i], final_string="imit")
+        args.nb_rollouts = 20
         for rep in range(args.nb_repet):
-            model.learn(nb_epochs=10, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
+            model.learn(nb_epochs=20, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
                         callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
@@ -193,5 +204,5 @@ def test_imitation_cmc() -> None:
 
 if __name__ == "__main__":
     # test_init()
-    test_reinforce()
-    # test_imitation_cmc()
+    # test_reinforce()
+    test_imitation_cmc()

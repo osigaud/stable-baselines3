@@ -2,21 +2,22 @@ import matplotlib.pyplot as plt
 from visu.visu_policies import final_show
 
 
-def episode_to_traj(episode):
+def episode_to_traj(rollout_data):
     """
-
-    :param episode:
-    :return:
+    Transform the states of a rollout_data into a set of (x,y) pairs
+    :param rollout_data:
+    :return: the (x,y) pairs
     """
     x = []
     y = []
-    for state in episode.state_pool:
-        x.append(state[0])
-        y.append(state[1])
+    obs = rollout_data.observations
+    for o in obs:
+        x.append(o[0])
+        y.append(o[1])
     return x, y
 
 
-def plot_trajectory(batch, env, nb, save_figure=True) -> None:
+def plot_trajectory(rollout_data, env, fig_index, save_figure=True) -> None:
     """
     Plot the set of trajectories stored into a batch
     :param batch: the source batch
@@ -31,8 +32,7 @@ def plot_trajectory(batch, env, nb, save_figure=True) -> None:
     # Use the dimension names if given otherwise default to "x" and "y"
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
 
-    for episode in batch.episodes:
-        x, y = episode_to_traj(episode)
-        plt.scatter(x, y, c=range(1, len(episode.state_pool) + 1), s=3)
-    figname = "trajectory_" + str(nb) + ".pdf"
+    x, y = episode_to_traj(rollout_data)
+    plt.scatter(x, y, c=range(1, len(rollout_data.observations) + 1), s=3)
+    figname = "trajectory_" + str(fig_index) + ".pdf"
     final_show(save_figure, False, figname, x_label, y_label, "Trajectory", "/plots/")

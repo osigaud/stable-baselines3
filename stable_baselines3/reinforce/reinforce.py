@@ -282,6 +282,21 @@ class REINFORCE(BaseAlgorithm):
             th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
         self.policy.optimizer.step()
 
+    def regress_policy(self):
+        """
+
+        """
+        rollout_data = self.rollout_buffer.get_samples()
+        obs = rollout_data.observations
+        actions = rollout_data.actions
+        action_loss = 1e20
+        while action_loss > 0.1:
+            self_actions, _, _ = self.policy.forward(obs)
+            action_loss = func.mse_loss(actions, self_actions)
+            self.policy.optimizer.zero_grad()
+            action_loss.sum().backward()
+            self.policy.optimizer.step()
+
     def post_processing(self) -> None:
         """
         Post-processing step: compute the return using different gradient computation criteria
@@ -410,39 +425,15 @@ class REINFORCE(BaseAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> None:
 
-        total_timesteps = nb_rollouts * self.max_episode_steps
-        total_timesteps, _ = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+        total_steps = nb_rollouts * self.max_episode_steps
+        total_steps, _ = self._setup_learn(
+            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
         if not collect_ok:
             raise NotImplementedError("Collect rollout stopped unexpectedly")
-        self.post_processing()
-        rollout_data = self.rollout_buffer.get_samples()
-
-        obs = rollout_data.observations
-        actions = rollout_data.actions
-        if isinstance(self.action_space, spaces.Discrete):
-            # Convert discrete action from float to long
-            actions = actions.long().flatten()
-
-        advantages = rollout_data.advantages
-        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
-        # print("expert actions:", actions.shape, actions)
-        print("expert advantages:", advantages.shape, advantages)
-        target_values = rollout_data.returns
-        # TODO: avoid second computation of everything because of the gradient
-        _, log_prob, _ = self.policy.evaluate_actions(obs, actions)
-
-        # Policy gradient loss
-        policy_loss = -(advantages * log_prob).mean()
-        # print("policy loss", policy_loss)
-
-        # Optimization step
-        self.policy.optimizer.zero_grad()
-        policy_loss.backward()
-        self.policy.optimizer.step()
+        self.regress_policy()
 
     def old_train(self) -> None:
         """
