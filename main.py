@@ -3,6 +3,8 @@ import random
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
+from stable_baselines3.her.her_replay_buffer import get_time_limit
+
 import numpy as np
 import torch
 from arguments import get_args
@@ -67,6 +69,8 @@ def test_reinforce() -> None:
     # eval_env = gym.make(args.env_name)
     # env_wrapped = Monitor(eval_env, log_dir)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    max_episode_steps = get_time_limit(env_vec, None)
+    print("max steps:", max_episode_steps)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
@@ -97,12 +101,14 @@ def test_reinforce() -> None:
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
             substract_baseline=use_baseline,
+            max_episode_steps=max_episode_steps,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
 
         for rep in range(args.nb_repet):
-            model.learn(nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+            model.learn(nb_epochs=10, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
+                        callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
@@ -125,6 +131,7 @@ def test_imitation_cmc() -> None:
     args.nb_rollouts = 8
     # Create and wrap the environment
     env = gym.make(args.env_name)
+    max_episode_steps = get_time_limit(env, None)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     grads = args.gradients
     for i in range(len(grads)):
@@ -155,6 +162,7 @@ def test_imitation_cmc() -> None:
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
             substract_baseline=use_baseline,
+            max_episode_steps=max_episode_steps,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
@@ -171,7 +179,8 @@ def test_imitation_cmc() -> None:
         model.collect_expert_rollout(nb_rollouts=10, callback=eval_callback2)
         plot_pol(model, env, args.env_name, grads[i], final_string="imit")
         for rep in range(args.nb_repet):
-            model.learn(nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0, callback=eval_callback, log_interval=args.log_interval)
+            model.learn(nb_epochs=10, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
+                        callback=eval_callback, log_interval=args.log_interval)
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")

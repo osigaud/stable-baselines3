@@ -14,7 +14,6 @@ from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
-from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 
@@ -128,10 +127,6 @@ class REINFORCE(BaseAlgorithm):
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
-        if self.env is not None:
-            max_episode_steps = get_time_limit(self.env, self.max_episode_steps)
-        else:
-            max_episode_steps = self.max_episode_steps
 
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
             self.observation_space,
@@ -141,6 +136,24 @@ class REINFORCE(BaseAlgorithm):
             **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
+
+    def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
+        state_dicts = ["policy", "policy.optimizer"]
+        return state_dicts, []
+
+    def init_buffer(self, nb_rollouts):
+        self.rollout_buffer = EpisodicBuffer(
+            self.observation_space,
+            self.action_space,
+            self.device,
+            self.gae_lambda,
+            self.gamma,
+            self.n_envs,
+            self.n_steps,
+            self.beta,
+            nb_rollouts,
+            max_episode_steps=self.max_episode_steps,
+        )
 
     def reset_episodes(self):
         self.episode_num = 0
@@ -168,12 +181,9 @@ class REINFORCE(BaseAlgorithm):
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         rollout_buffer.reset()
-        # print("last_obs:", self._last_obs)
-
         callback.on_rollout_start()
 
-        while rollout_buffer.n_episodes_stored < self.nb_rollouts:
-            # print("in R, l190:", rollout_buffer.n_episodes_stored, self.nb_rollouts)
+        while rollout_buffer.n_episodes_stored < rollout_buffer.nb_rollouts:
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
@@ -181,7 +191,6 @@ class REINFORCE(BaseAlgorithm):
                     actions, _, _ = self.policy.forward(obs_tensor)
                 else:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
-                    # print("pg l177:", n_steps, actions)
             if not expert_pol:
                 actions = actions.cpu().numpy()
 
@@ -192,7 +201,6 @@ class REINFORCE(BaseAlgorithm):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
-            # print("in pg, l178:", dones, self.num_timesteps)
             self.num_timesteps += env.num_envs
 
             # Give access to local variables
@@ -212,13 +220,11 @@ class REINFORCE(BaseAlgorithm):
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
-                self.logger.record("time/episode", self.episode_num, exclude="tensorboard")
-                # callback.on_episode_end() # Only possible if callback = LossCallBack
+                # self.logger.record("time/collect episode", self.episode_num)
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
         callback.on_rollout_end()
-        # print("in pg, l235: exit")
         return True
 
     def train(self) -> None:
@@ -255,7 +261,7 @@ class REINFORCE(BaseAlgorithm):
             value_loss = func.mse_loss(target_values, values)
             # print("value loss", value_loss)
 
-            # Entropy loss favor exploration
+            # Entropy loss favors exploration
             if entropy is None:
                 # Approximate entropy when no analytical form
                 entropy_loss = -th.mean(-log_prob)
@@ -285,67 +291,57 @@ class REINFORCE(BaseAlgorithm):
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
-    def init_buffer(self, nb_rollouts):
-        self.rollout_buffer = EpisodicBuffer(
-            self.observation_space,
-            self.action_space,
-            self.device,
-            self.gae_lambda,
-            self.gamma,
-            self.n_envs,
-            self.n_steps,
-            self.beta,
-            nb_rollouts,
-            max_episode_steps=self.max_episode_steps,
-        )
-
     def learn(
         self,
-        nb_rollouts: int,
+        nb_epochs: int,
+        nb_rollouts: int = 1,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
         n_eval_episodes: int = 5,
-        tb_log_name: str = "PGAlgorithm",
+        tb_log_name: str = "REINFORCE",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         expert_pol: bool = False,
     ) -> "BaseAlgorithm":
-        iteration = 0
 
-        total_timesteps = nb_rollouts * self.max_episode_steps
-        total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+        total_steps = nb_rollouts * self.max_episode_steps
+        total_steps, callback = self._setup_learn(
+            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
-
-        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
-        if not collect_ok:
-            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
-
-        self.post_processing()
-        self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-        # Display training infos
-        if log_interval is not None and iteration % log_interval == 0:
-            fps = int(self.num_timesteps / (time.time() - self.start_time))
-            self.logger.record("time/iterations", iteration, exclude="tensorboard")
-            if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-                self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
-            self.logger.record("time/fps", fps)
-            self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
-            self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-            self.logger.dump(step=self.num_timesteps)
-        self.train()
-
+        for i in range(nb_epochs):
+            self.logger.record("time/iterations", i, exclude="tensorboard")
+            self.learn_one_epoch(total_steps, callback)
         callback.on_training_end()
         return self
 
-    def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
-        state_dicts = ["policy", "policy.optimizer"]
-        return state_dicts, []
+    def learn_one_epoch(
+        self,
+        total_time_steps: int,
+        callback: MaybeCallback = None,
+        expert_pol: bool = False,
+    ) -> None:
+
+        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
+        if not collect_ok:
+            raise NotImplementedError("Collect rollout stopped unexpectedly")
+
+        self.post_processing()
+        self._update_current_progress_remaining(self.num_timesteps, total_time_steps)
+        # Display training infos
+        fps = int(self.num_timesteps / (time.time() - self.start_time))
+
+        if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+            self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("time/fps", fps)
+        self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+        self.logger.record("time/total_time_steps", self.num_timesteps, exclude="tensorboard")
+        self.logger.dump(step=self.num_timesteps)
+        self.train()
 
     def collect_expert_rollout(
         self,
@@ -366,7 +362,7 @@ class REINFORCE(BaseAlgorithm):
         self.init_buffer(nb_rollouts)
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
         if not collect_ok:
-            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+            raise NotImplementedError("Collect rollout stopped unexpectedly")
         self.post_processing()
         rollout_data = self.rollout_buffer.get_samples()
 
