@@ -11,6 +11,7 @@ def episode_to_traj(rollout_data):
     x = []
     y = []
     obs = rollout_data.observations
+    # TODO : treat the case where the variables to plot are not the first two
     for o in obs:
         x.append(o[0])
         y.append(o[1])
@@ -20,9 +21,9 @@ def episode_to_traj(rollout_data):
 def plot_trajectory(rollout_data, env, fig_index, save_figure=True) -> None:
     """
     Plot the set of trajectories stored into a batch
-    :param batch: the source batch
+    :param rollout_data: the source batch
     :param env: the environment where the batch was built
-    :param nb: a number, to save several similar plots
+    :param fig_index: a number, to save several similar plots
     :param save_figure: where the plot should be saved
     :return: nothing
     """

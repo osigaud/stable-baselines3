@@ -69,7 +69,7 @@ def test_reinforce() -> None:
     args.gradients = ["discount"]
     # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
     use_baseline = False
-    args.nb_rollouts = 800
+    args.nb_rollouts = 50
     args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
@@ -204,5 +204,5 @@ def test_imitation_cmc() -> None:
 
 if __name__ == "__main__":
     # test_init()
-    test_reinforce()
-    # test_imitation_cmc()
+    # test_reinforce()
+    test_imitation_cmc()

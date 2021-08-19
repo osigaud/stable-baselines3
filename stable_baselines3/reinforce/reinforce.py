@@ -194,7 +194,10 @@ class REINFORCE(BaseAlgorithm):
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 if expert_pol:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
+                    # TODO : pas élégant du tout...
                     log_probs = 0
+                    values = 0
+                    entropies = 0
                 else:
                     actions, values, log_probs = self.policy.forward(obs_tensor)
                     latent_pi, latent_vf, latent_sde = self.policy._get_latent(obs_tensor)
