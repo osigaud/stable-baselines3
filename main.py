@@ -51,7 +51,7 @@ def init_test_reinforce():
 
 
 def test_reinforce() -> None:
-    plot_policies = False
+    plot_policies = True
     args = get_args()
     chrono = Chrono()
     # Create log dir
@@ -60,10 +60,11 @@ def test_reinforce() -> None:
     # args.env_name = "Pendulum-v0"
     # args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
-    # args.gradients = ["discount", "normalized discount"]
-    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
+    args.gradients = ["discount"]
+    # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
     use_baseline = False
     args.nb_rollouts = 80
+    args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
     # eval_env = gym.make(args.env_name)
@@ -102,6 +103,7 @@ def test_reinforce() -> None:
             tensorboard_log=log_file_name,
             substract_baseline=use_baseline,
             max_episode_steps=max_episode_steps,
+            critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
@@ -131,8 +133,8 @@ def test_imitation_cmc() -> None:
     args.nb_rollouts = 8
     # Create and wrap the environment
     env = gym.make(args.env_name)
-    max_episode_steps = get_time_limit(env, None)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    max_episode_steps = get_time_limit(env_vec, None)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
@@ -163,6 +165,7 @@ def test_imitation_cmc() -> None:
             tensorboard_log=log_file_name,
             substract_baseline=use_baseline,
             max_episode_steps=max_episode_steps,
+            critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")

@@ -216,7 +216,7 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="cartpol
             action, _ = policy.predict(obs, deterministic=deterministic)
             portrait[definition - (1 + index_y), index_x] = action
     plt.figure(figsize=(10, 10))
-    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
+    plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[2], state_max[2]], aspect="auto")
     plt.colorbar(label="action")
     # Add a point at the center
     plt.scatter([0], [0])

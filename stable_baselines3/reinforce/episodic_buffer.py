@@ -125,7 +125,6 @@ class EpisodicBuffer(BaseBuffer):
         if done or self.episode_steps >= self.max_episode_steps:
             self.store_episode()
             self.episode_steps = 0
-        # print("eb, l130", done, reward, self.current_idx, self.episode_steps, self.episode_idx)
 
     def get_samples(self) -> RolloutBufferSamples:
 
@@ -201,6 +200,28 @@ class EpisodicBuffer(BaseBuffer):
         # print("rewards", self.rewards.shape, self.rewards)
         # print("sums:", self.policy_returns.shape, self.policy_returns)
 
+    def get_normalized_rewards(self) -> None:
+        """
+        Normalize rewards of all samples of all episodes
+        """
+        for ep in range(self.nb_rollouts):
+            self.policy_returns[ep] = self.rewards[ep]
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
+    def get_normalized_sum(self) -> None:
+        """
+        Normalize rewards of all samples of all episodes
+        """
+        self.get_sum_rewards()
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
+    def get_normalized_discounted_rewards(self) -> None:
+        """
+        Apply a normalized and discounted sum of rewards to all samples of the episode
+        """
+        self.get_discounted_sum_rewards()
+        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+
     def subtract_baseline(self) -> None:
         """
         Subtracts the values to the reward of all samples of all episodes
@@ -227,28 +248,6 @@ class EpisodicBuffer(BaseBuffer):
                     summ += self.gamma ** j * self.rewards[ep, i + j]
                 self.policy_returns[ep, i] = summ
 
-    def get_normalized_rewards(self) -> None:
-        """
-        Normalize rewards of all samples of all episodes
-        """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep] = self.rewards[ep]
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
-
-    def get_normalized_sum(self) -> None:
-        """
-        Normalize rewards of all samples of all episodes
-        """
-        self.get_sum_rewards()
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
-
-    def get_normalized_discounted_rewards(self) -> None:
-        """
-        Apply a normalized and discounted sum of rewards to all samples of the episode
-        """
-        self.get_discounted_sum_rewards()
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
-
     def get_exponentiated_rewards(self, beta) -> None:
         """
         Apply an exponentiation factor to the rewards of all samples of all episodes
@@ -257,7 +256,7 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
 
-    def get_target_values(self) -> None:
+    def get_target_values_td(self) -> None:
         """
         """
         for ep in range(self.nb_rollouts):
@@ -269,6 +268,13 @@ class EpisodicBuffer(BaseBuffer):
                 else:
                     target = self.rewards[ep, step] + self.gamma * self.gae_lambda * self.values[ep, step + 1]
                 self.target_values[ep, step] = target
+
+    def get_target_values_mc(self) -> None:
+        """
+        """
+        self.get_discounted_sum_rewards()
+        for ep in range(self.nb_rollouts):
+            self.target_values[ep] = self.policy_returns[ep]
 
     def process_gae(self) -> None:
         """

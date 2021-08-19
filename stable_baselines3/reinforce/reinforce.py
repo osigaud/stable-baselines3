@@ -78,6 +78,8 @@ class REINFORCE(BaseAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
         substract_baseline: bool = False,
+        uses_entropy: bool = False,
+        critic_estim_method: str = "td"
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -109,7 +111,10 @@ class REINFORCE(BaseAlgorithm):
         self.normalize_advantage = normalize_advantage
         self.clip_grad = False
         self.substract_baseline = substract_baseline
+        self.uses_entropy = uses_entropy
         self.episode_num = 0
+        self.rollout_buffer = None
+        self.critic_estim_method = critic_estim_method
 
         # Update optimizer inside the policy if we want to use RMSProp
         # (original implementation) rather than Adam
@@ -227,6 +232,81 @@ class REINFORCE(BaseAlgorithm):
         callback.on_rollout_end()
         return True
 
+    def compute_critic(self):
+        """
+        The method assumes a rollout has already been collected, the rollout buffer is ready
+        """
+        if self.critic_estim_method == "mc":
+            self.rollout_buffer.get_target_values_mc()
+        elif self.critic_estim_method == "td":
+            self.rollout_buffer.get_target_values_td()
+        elif self.critic_estim_method == "n steps":
+            self.rollout_buffer.get_target_values_nsteps()
+        else:
+            raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
+
+        # Get all data in one go
+        rollout_data = self.rollout_buffer.get_samples()
+        obs = rollout_data.observations
+        actions = rollout_data.actions
+        if isinstance(self.action_space, spaces.Discrete):
+            # Convert discrete action from float to long
+            actions = actions.long().flatten()
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+        target_values = rollout_data.returns
+        values = values.flatten()
+        value_loss = func.mse_loss(target_values, values)
+        # print("value loss", value_loss)
+
+        # Entropy loss favors exploration
+        if self.uses_entropy:
+            if entropy is None:
+                # Approximate entropy when no analytical form
+                entropy_loss = -th.mean(-log_prob)
+            else:
+                entropy_loss = -th.mean(entropy)
+            self.logger.record("train/entropy_loss", entropy_loss.item())
+
+            total_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
+        else:
+            total_loss = value_loss
+        self.logger.record("train/value_loss", value_loss.item())
+
+        # Optimization step
+        self.policy.optimizer.zero_grad()
+        total_loss.backward()
+
+        if self.clip_grad:
+            # Clip grad norm
+            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+        self.policy.optimizer.step()
+
+    def post_processing(self) -> None:
+        """
+        Post-processing step: compute the return using different gradient computation criteria
+        For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
+        """
+        if self.substract_baseline:
+            self.compute_baseline_td()
+
+        if self.gradient_name == "beta":
+            self.rollout_buffer.get_exponentiated_rewards(self.beta)
+        elif self.gradient_name == "sum":
+            self.rollout_buffer.get_sum_rewards()
+        elif self.gradient_name == "discount":
+            self.rollout_buffer.get_discounted_sum_rewards()
+        elif self.gradient_name == "normalized sum":
+            self.rollout_buffer.get_normalized_sum()
+        elif self.gradient_name == "normalized discounted":
+            self.rollout_buffer.get_normalized_discounted_rewards()
+        elif self.gradient_name == "n step":
+            self.rollout_buffer.get_n_step_return()
+        elif self.gradient_name == "gae":
+            self.rollout_buffer.process_gae()
+        else:
+            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+
     def train(self) -> None:
         """
         Update policy using the currently gathered
@@ -234,10 +314,8 @@ class REINFORCE(BaseAlgorithm):
         """
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
-
-        # Get all data in one go
+        self.compute_critic()
         rollout_data = self.rollout_buffer.get_samples()
-
         obs = rollout_data.observations
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
@@ -245,35 +323,12 @@ class REINFORCE(BaseAlgorithm):
             actions = actions.long().flatten()
 
         advantages = rollout_data.advantages
-        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
-            # print("advantages", advantages.shape, advantages)
-        target_values = rollout_data.returns
         # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
-        values = values.flatten()
+        _, log_prob, _ = self.policy.evaluate_actions(obs, actions)
 
         # Policy gradient loss
         policy_loss = -(advantages * log_prob).mean()
-        # print("policy loss", policy_loss)
-
-        if self.gradient_name == "baseline" or self.gradient_name == "gae" or self.gradient_name == "n step":
-            # Value loss using the TD(gae_lambda) target
-            value_loss = func.mse_loss(target_values, values)
-            # print("value loss", value_loss)
-
-            # Entropy loss favors exploration
-            if entropy is None:
-                # Approximate entropy when no analytical form
-                entropy_loss = -th.mean(-log_prob)
-            else:
-                entropy_loss = -th.mean(entropy)
-
-            compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
-            total_loss = policy_loss + compound_value_loss
-            self.logger.record("train/value_loss", value_loss.item())
-            self.logger.record("train/entropy_loss", entropy_loss.item())
-        else:
-            total_loss = policy_loss
+        total_loss = policy_loss
         # print("total loss", total_loss)
 
         # Optimization step
@@ -389,27 +444,66 @@ class REINFORCE(BaseAlgorithm):
         policy_loss.backward()
         self.policy.optimizer.step()
 
-    def post_processing(self) -> None:
+    def old_train(self) -> None:
         """
-        Post-processing step: compute the return using different gradient computation criteria
-        For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
+        Update policy using the currently gathered
+        rollout buffer (one gradient step over whole data).
         """
-        if self.substract_baseline:
-            self.rollout_buffer.get_target_values()
+        # Update optimizer learning rate
+        self._update_learning_rate(self.policy.optimizer)
 
-        if self.gradient_name == "beta":
-            self.rollout_buffer.get_exponentiated_rewards(self.beta)
-        elif self.gradient_name == "sum":
-            self.rollout_buffer.get_sum_rewards()
-        elif self.gradient_name == "discount":
-            self.rollout_buffer.get_discounted_sum_rewards()
-        elif self.gradient_name == "normalized sum":
-            self.rollout_buffer.get_normalized_sum()
-        elif self.gradient_name == "normalized discounted":
-            self.rollout_buffer.get_normalized_discounted_rewards()
-        elif self.gradient_name == "n step":
-            self.rollout_buffer.get_n_step_return()
-        elif self.gradient_name == "gae":
-            self.rollout_buffer.process_gae()
+        # Get all data in one go
+        rollout_data = self.rollout_buffer.get_samples()
+
+        obs = rollout_data.observations
+        actions = rollout_data.actions
+        if isinstance(self.action_space, spaces.Discrete):
+            # Convert discrete action from float to long
+            actions = actions.long().flatten()
+
+        advantages = rollout_data.advantages
+        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
+            # print("advantages", advantages.shape, advantages)
+        target_values = rollout_data.returns
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+        values = values.flatten()
+
+        # Policy gradient loss
+        policy_loss = -(advantages * log_prob).mean()
+        # print("policy loss", policy_loss)
+
+        if self.gradient_name == "baseline" or self.gradient_name == "gae" or self.gradient_name == "n step":
+            # Value loss using the TD(gae_lambda) target
+            value_loss = func.mse_loss(target_values, values)
+            # print("value loss", value_loss)
+
+            # Entropy loss favors exploration
+            if entropy is None:
+                # Approximate entropy when no analytical form
+                entropy_loss = -th.mean(-log_prob)
+            else:
+                entropy_loss = -th.mean(entropy)
+
+            compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
+            total_loss = policy_loss + compound_value_loss
+            self.logger.record("train/value_loss", value_loss.item())
+            self.logger.record("train/entropy_loss", entropy_loss.item())
         else:
-            raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
+            total_loss = policy_loss
+        # print("total loss", total_loss)
+
+        # Optimization step
+        self.policy.optimizer.zero_grad()
+        total_loss.backward()
+
+        if self.clip_grad:
+            # Clip grad norm
+            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+        self.policy.optimizer.step()
+
+        self._n_updates += 1
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/policy_loss", policy_loss.item())
+        if hasattr(self.policy, "log_std"):
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
