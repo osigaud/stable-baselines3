@@ -192,12 +192,15 @@ class REINFORCE(BaseAlgorithm):
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
-                if not expert_pol:
-                    actions, _, _ = self.policy.forward(obs_tensor)
-                else:
+                if expert_pol:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
-            if not expert_pol:
-                actions = actions.cpu().numpy()
+                    log_probs = 0
+                else:
+                    actions, _, log_probs = self.policy.forward(obs_tensor)
+                    latent_pi, _, latent_sde = self.policy._get_latent(obs_tensor)
+                    distributions = self.policy._get_action_dist_from_latent(latent_pi, latent_sde)
+                    entropies = distributions.entropy()
+                    actions = actions.cpu().numpy()
 
             # Rescale and perform action
             clipped_actions = actions
@@ -221,7 +224,7 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, dones, infos)
+            rollout_buffer.add(self._last_obs, actions, rewards, log_probs, entropies, self._last_episode_starts, dones, infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -247,13 +250,10 @@ class REINFORCE(BaseAlgorithm):
 
         # Get all data in one go
         rollout_data = self.rollout_buffer.get_samples()
-        obs = rollout_data.observations
-        actions = rollout_data.actions
-        if isinstance(self.action_space, spaces.Discrete):
-            # Convert discrete action from float to long
-            actions = actions.long().flatten()
-        # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+
+        log_prob = rollout_data.old_log_prob
+        entropy = rollout_data.old_entropy
+        values = rollout_data.values
         target_values = rollout_data.returns
         values = values.flatten()
         value_loss = func.mse_loss(target_values, values)
@@ -302,8 +302,6 @@ class REINFORCE(BaseAlgorithm):
         Post-processing step: compute the return using different gradient computation criteria
         For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
         """
-        if self.substract_baseline:
-            self.compute_baseline_td()
 
         if self.gradient_name == "beta":
             self.rollout_buffer.get_exponentiated_rewards(self.beta)
@@ -329,7 +327,9 @@ class REINFORCE(BaseAlgorithm):
         """
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
+
         self.compute_critic()
+
         rollout_data = self.rollout_buffer.get_samples()
         obs = rollout_data.observations
         actions = rollout_data.actions
@@ -338,8 +338,7 @@ class REINFORCE(BaseAlgorithm):
             actions = actions.long().flatten()
 
         advantages = rollout_data.advantages
-        # TODO: avoid second computation of everything because of the gradient
-        _, log_prob, _ = self.policy.evaluate_actions(obs, actions)
+        log_prob = rollout_data.old_log_prob
 
         # Policy gradient loss
         policy_loss = -(advantages * log_prob).mean()

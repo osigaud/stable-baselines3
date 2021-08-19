@@ -353,7 +353,7 @@ class ActorCriticPolicy(BasePolicy):
     :param activation_fn: Activation function
     :param ortho_init: Whether to use or not orthogonal initialization
     :param use_sde: Whether to use State Dependent Exploration or not
-    :param log_std_init: Initial value for the log standard deviation
+    :param log_std_init: Initial value for the log standard diation
     :param full_std: Whether to use (n_features x n_actions) parameters
         for the std instead of only (n_features,) when using gSDE
     :param sde_net_arch: Network architecture for extracting features

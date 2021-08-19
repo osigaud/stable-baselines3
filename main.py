@@ -204,5 +204,5 @@ def test_imitation_cmc() -> None:
 
 if __name__ == "__main__":
     # test_init()
-    # test_reinforce()
-    test_imitation_cmc()
+    test_reinforce()
+    # test_imitation_cmc()

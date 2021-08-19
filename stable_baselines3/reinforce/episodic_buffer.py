@@ -29,7 +29,6 @@ class EpisodicBuffer(BaseBuffer):
     :param gamma: Discount factor
     :param n_envs: Number of parallel environments
     :param n_steps: N of N-step return
-    :param gradient_name: name of the type of gradient
     :param nb_rollouts: Number of rollouts to fill the buffer
     :param max_episode_steps: Maximum length of an episode
     """
@@ -50,7 +49,7 @@ class EpisodicBuffer(BaseBuffer):
     ):
         if verbose:
             print("nb rollouts:", nb_rollouts)
-            print("max episode length:",max_episode_steps)
+            print("max episode length:", max_episode_steps)
         buffer_size = nb_rollouts * max_episode_steps
 
         super(EpisodicBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
@@ -88,6 +87,7 @@ class EpisodicBuffer(BaseBuffer):
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.entropies = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
 
@@ -107,6 +107,8 @@ class EpisodicBuffer(BaseBuffer):
         obs: Dict[str, np.ndarray],
         action: np.ndarray,
         reward: np.ndarray,
+        log_prob: np.ndarray,
+        entropy: np.ndarray,
         episode_start: np.ndarray,
         done: np.ndarray,
         infos: List[Dict[str, Any]],
@@ -117,6 +119,8 @@ class EpisodicBuffer(BaseBuffer):
         self.dones[self.episode_idx][self.current_idx] = done
         self.episode_starts[self.episode_idx][self.current_idx] = episode_start
         self.rewards[self.episode_idx][self.current_idx] = reward
+        self.log_probs[self.episode_idx][self.current_idx] = log_prob
+        self.entropies[self.episode_idx][self.current_idx] = entropy
 
         # update current pointer
         self.current_idx += 1
@@ -138,6 +142,7 @@ class EpisodicBuffer(BaseBuffer):
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
             self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.entropies[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
         )
