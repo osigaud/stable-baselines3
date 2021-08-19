@@ -85,12 +85,11 @@ class EpisodicBuffer(BaseBuffer):
         self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.entropies = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-
+        self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         # input dimensions for buffer initialization
         self.input_shape = {
             "observation": (self.n_envs,) + self.obs_shape,
@@ -106,6 +105,7 @@ class EpisodicBuffer(BaseBuffer):
         self,
         obs: Dict[str, np.ndarray],
         action: np.ndarray,
+        value: np.ndarray,
         reward: np.ndarray,
         log_prob: np.ndarray,
         entropy: np.ndarray,
@@ -116,12 +116,12 @@ class EpisodicBuffer(BaseBuffer):
 
         self._buffer["observation"][self.episode_idx][self.current_idx] = obs
         self._buffer["action"][self.episode_idx][self.current_idx] = action
-        self.dones[self.episode_idx][self.current_idx] = done
-        self.episode_starts[self.episode_idx][self.current_idx] = episode_start
+        self.values[self.episode_idx][self.current_idx] = value
         self.rewards[self.episode_idx][self.current_idx] = reward
         self.log_probs[self.episode_idx][self.current_idx] = log_prob
         self.entropies[self.episode_idx][self.current_idx] = entropy
-
+        self.episode_starts[self.episode_idx][self.current_idx] = episode_start
+        self.dones[self.episode_idx][self.current_idx] = done
         # update current pointer
         self.current_idx += 1
         self.episode_steps += 1
@@ -140,11 +140,11 @@ class EpisodicBuffer(BaseBuffer):
         return RolloutBufferSamples(
             self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
-            self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
             self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.entropies[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
         )
 
     def _get_samples(
@@ -202,8 +202,6 @@ class EpisodicBuffer(BaseBuffer):
         """
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.sum(self.rewards[ep])
-        # print("rewards", self.rewards.shape, self.rewards)
-        # print("sums:", self.policy_returns.shape, self.policy_returns)
 
     def get_normalized_rewards(self) -> None:
         """

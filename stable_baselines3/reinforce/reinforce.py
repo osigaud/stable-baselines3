@@ -196,11 +196,12 @@ class REINFORCE(BaseAlgorithm):
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
                     log_probs = 0
                 else:
-                    actions, _, log_probs = self.policy.forward(obs_tensor)
-                    latent_pi, _, latent_sde = self.policy._get_latent(obs_tensor)
+                    actions, values, log_probs = self.policy.forward(obs_tensor)
+                    latent_pi, latent_vf, latent_sde = self.policy._get_latent(obs_tensor)
                     distributions = self.policy._get_action_dist_from_latent(latent_pi, latent_sde)
                     entropies = distributions.entropy()
                     actions = actions.cpu().numpy()
+                    # values = self.policy.value_net(latent_vf) # TODO: two ways to compute values, via forward or via value net
 
             # Rescale and perform action
             clipped_actions = actions
@@ -224,7 +225,7 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(self._last_obs, actions, rewards, log_probs, entropies, self._last_episode_starts, dones, infos)
+            rollout_buffer.add(self._last_obs, actions, values, rewards, log_probs, entropies, self._last_episode_starts, dones, infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -253,12 +254,22 @@ class REINFORCE(BaseAlgorithm):
 
         log_prob = rollout_data.old_log_prob
         entropy = rollout_data.old_entropy
-        values = rollout_data.values
+        values1 = rollout_data.old_values
         target_values = rollout_data.returns
-        values = values.flatten()
+
+        obs = rollout_data.observations
+        actions = rollout_data.actions
+        if isinstance(self.action_space, spaces.Discrete):
+            # Convert discrete action from float to long
+            actions = actions.long().flatten()
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+
+        # print("v", values)
+        # print("v1", values1)
+
         value_loss = func.mse_loss(target_values, values)
         # print("value loss", value_loss)
-
         # Entropy loss favors exploration
         if self.uses_entropy:
             if entropy is None:
@@ -331,14 +342,20 @@ class REINFORCE(BaseAlgorithm):
         self.compute_critic()
 
         rollout_data = self.rollout_buffer.get_samples()
+        advantages = rollout_data.advantages
+        log_prob1 = rollout_data.old_log_prob
+
+
         obs = rollout_data.observations
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
             actions = actions.long().flatten()
+        # TODO: avoid second computation of everything because of the gradient
+        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
 
-        advantages = rollout_data.advantages
-        log_prob = rollout_data.old_log_prob
+        # print("lp 358", log_prob)
+        # print("lp1", log_prob1)
 
         # Policy gradient loss
         policy_loss = -(advantages * log_prob).mean()

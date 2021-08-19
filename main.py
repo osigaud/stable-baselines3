@@ -57,7 +57,7 @@ def init_test_reinforce():
 
 
 def test_reinforce() -> None:
-    plot_policies = True
+    plot_policies = False
     args = get_args()
     chrono = Chrono()
     # Create log dir
