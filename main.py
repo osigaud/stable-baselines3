@@ -13,8 +13,9 @@ from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulu
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 from visu.visu_trajectories import plot_trajectory
 
-from stable_baselines3 import REINFORCE
+from stable_baselines3 import REINFORCE, CEM
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
@@ -44,14 +45,19 @@ def plot_crit(model, env, env_name, gradient_name, final_string="post"):
     else:
         plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
 
+
 def init_test_reinforce():
+    args = get_args()
+    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    max_episode_steps = get_time_limit(env_vec, None)
     model = REINFORCE(
         "MlpPolicy",
-        "CartPoleContinuous-v0",
+        args.env_name,
         gradient_name="gae",
         optimizer_name="sgd",
         seed=1,
         verbose=1,
+        max_episode_steps=max_episode_steps,
     )
     model.learn(int(1e5))
 
@@ -202,7 +208,50 @@ def test_imitation_cmc() -> None:
     chrono.stop()
 
 
+def test_cem() -> None:
+    plot_policies = True
+    args = get_args()
+    chrono = Chrono()
+    # Create log dir
+    log_dir = "data/save/"
+    os.makedirs(log_dir, exist_ok=True)
+    # args.env_name = "MountainCarContinuous-v0"
+    args.nb_rollouts = 8
+    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+     # max_episode_steps = get_time_limit(env_vec, None)
+    file_name = "cem_" + args.env_name
+    log_file_name = log_dir + file_name
+    eval_callback = EvalCallback(
+        env_vec,
+        best_model_save_path=log_dir + "bests/",
+        log_path=log_dir,
+        eval_freq=1,
+        n_eval_episodes=2,
+        deterministic=True,
+        render=False,
+    )
+    policy_kwargs = dict(net_arch=[dict(pi=[5, 5], vf=[10, 10])])
+
+    model = CEM(
+        "MlpPolicy",
+        args.env_name,
+        learning_rate=args.lr_actor,
+        seed=1,
+        verbose=1,
+        policy_kwargs=policy_kwargs,
+        tensorboard_log=log_file_name,
+    )
+    if plot_policies:
+        plot_pol(model, env_vec, args.env_name, "cem", final_string="pre")
+
+    model.learn(reset_num_timesteps=True, callback=eval_callback, log_interval=args.log_interval)
+    if plot_policies:
+        plot_pol(model, env_vec, args.env_name, "cem", final_string="post")
+
+    chrono.stop()
+
 if __name__ == "__main__":
-    # test_init()
+    # init_test_reinforce()
     # test_reinforce()
-    test_imitation_cmc()
+    # test_imitation_cmc()
+    test_cem()

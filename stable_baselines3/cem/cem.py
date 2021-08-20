@@ -1,28 +1,40 @@
-import os
 from typing import Any, Dict, Optional, Type, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
-from progress.bar import Bar
 
-from stable_baselines3.common import logger
-from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm
+from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.evaluation import evaluate_policy
 
+
+def evaluate(model, env) -> float:
+    fitness, _ = evaluate_policy(model, env)
+    return fitness
+
+def get_params_tmp(model) -> np.ndarray:
+    mean_params = dict(
+        (key, value)
+        for key, value in model.state_dict().items()
+        if ("policy" in key or "shared_net" in key or "action" in key)
+    )
+    params = model._params_to_vector(model.policy)
+    print(mean_params.values())
+    print(params)
+    return params
 
 class CEM(BaseAlgorithm):
     """
+    The Cross Entropy Method
+    The built-in policy corresponds to the centroid of the population at each generation
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: The learning rate, it can be a function
         of the current progress remaining (from 1 to 0)
-    :param rms_prop_eps: RMSProp epsilon. It stabilizes square root computation in denominator
-        of RMSProp update
-    :param use_rms_prop: Whether to use RMSprop (default) or Adam as optimizer
-    :param normalize_advantage: Whether to normalize or not the advantage
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
@@ -34,31 +46,16 @@ class CEM(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    def learn(
-        self,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        log_interval: int = 100,
-        tb_log_name: str = "run",
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        eval_log_path: Optional[str] = None,
-        reset_num_timesteps: bool = True,
-    ) -> "BaseAlgorithm":
-        pass
-
-    def _setup_model(self) -> None:
-        pass
-
     def __init__(
         self,
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
+        pop_size: int = 20,
+        elit_frac_size: float = .2,
+        sigma: float = 0.2,
+        noise_multiplier: float = 0.999,
+        policy_base: Type[BasePolicy] = ActorCriticPolicy,
         learning_rate: Union[float, Schedule] = 7e-4,
-        rms_prop_eps: float = 1e-5,
-        use_rms_prop: bool = True,
-        normalize_advantage: bool = False,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -71,6 +68,7 @@ class CEM(BaseAlgorithm):
         super(CEM, self).__init__(
             policy,
             env,
+            policy_base=policy_base,
             learning_rate=learning_rate,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
@@ -86,109 +84,122 @@ class CEM(BaseAlgorithm):
             ),
         )
 
-        self.normalize_advantage = normalize_advantage
+        self.rng = np.random.default_rng()
 
-        # Update optimizer inside the policy if we want to use RMSProp
-        # (original implementation) rather than Adam
-        if use_rms_prop and "optimizer_class" not in self.policy_kwargs:
-            self.policy_kwargs["optimizer_class"] = th.optim.RMSprop
-            self.policy_kwargs["optimizer_kwargs"] = dict(alpha=0.99, eps=rms_prop_eps, weight_decay=0)
+        self.pop_size = pop_size
+        self.elit_frac_size = elit_frac_size
+        self.elites_nb = int(self.elit_frac_size * self.pop_size)
+
+        self.sigma = sigma
+        self.noise = None
+        self.var = None
+        self.d3rlpy_model = True
+
+        self.noise_multiplier = noise_multiplier
 
         if _init_setup_model:
             self._setup_model()
 
-    def train(self, params) -> None:
+    def _setup_model(self) -> None:
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+
+        self.policy = self.policy_class(  # pytype:disable=not-instantiable
+            self.observation_space,
+            self.action_space,
+            self.lr_schedule,
+            use_sde=False,
+            **self.policy_kwargs  # pytype:disable=not-instantiable
+        )
+        self.policy = self.policy.to(self.device)
+        params = self.get_params()
+        self.policy_dim = params.shape[0]
+        print("policy dim:", self.policy_dim)
+
+    @staticmethod
+    def to_numpy(tensor):
+        return tensor.detach().numpy().flatten()
+
+    def get_params(self) -> np.ndarray:
+        return self.policy.parameters_to_vector() # note: also retrieves critic params...
+
+    def set_params(self, indiv) -> None:
+        self.policy.load_from_vector(indiv.copy())
+
+    def update_noise(self) -> None:
+        self.noise = self.noise * self.noise_multiplier
+
+    def make_random_indiv(self) -> np.ndarray:
+        return np.random.rand(self.policy.get_weights_dim())
+
+    def init_var(self, centroid) -> None:
+        self.noise = np.diag(np.ones(self.policy_dim) * self.sigma)
+        self.var = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
+
+    def one_loop(self, iter: int) -> None:
+        centroid = self.get_params()
+        self.update_noise()
+        scores = np.zeros(self.pop_size)
+        weights = self.rng.multivariate_normal(centroid, self.var, self.pop_size)
+
+        for i in range(self.pop_size):
+            self.set_params(weights[i])  # TODO: rather use a policy built on the fly
+            scores[i] = evaluate(self.policy, self.env)
+
+        elites_idxs = scores.argsort()[-self.elites_nb:]
+        scores.sort()
+        print("scores:", scores)
+        self.logger.record("train/n_updates", iter, exclude="tensorboard")
+        self.logger.record("train/best_score", scores[-1])
+        elites_weights = [weights[i] for i in elites_idxs]
+        # update the best weights
+        centroid = np.array(elites_weights).mean(axis=0)
+        self.var = np.cov(elites_weights, rowvar=False) + self.noise
+        self.set_params(centroid)
+
+    def train(self, nb_iterations: int, callback: BaseCallback) -> None:
         """
-        The main function to learn policies using the Cross Enthropy Method
-         Update policy using the currently gathered
-         rollout buffer (one gradient step over whole data).
+        The main function to learn policies using the Cross Entropy Method
         """
-        # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
-
-        # Initialize variables
-        self.list_weights = []
-        self.best_weights = np.zeros(self.policy.get_weights_dim())
-        self.list_rewards = np.zeros((int(params.nb_cycles)))
-        self.best_reward = -1e38
-        self.best_weights_idx = 0
-
-        # Print the number of workers with the multi-thread
-        # TODO : does multithreading work ?
-        if params.multi_threading:
-            workers = os.cpu_count()
-            evals = int(params.nb_evals / workers)
-            print("\n Multi-Threading Evals : " + str(workers) + " workers with each " + str(evals) + " evals to do")
-
-        print("Shape of weights vector is: ", self.policy.get_weights_dim())
-
-        if params.start_from_policy:
-            # TODO(olivier): start from existing policy weights
-            # starting_weights = get_starting_weights(pw)
-            # centroid = starting_weights
-            raise NotImplementedError()
-        # Init the first centroid
-        elif params.start_from_same_policy:
-            centroid = self.policy.get_weights()
-        else:
-            centroid = np.random.rand(self.policy.get_weights_dim())
-
-        self.policy.set_weights(centroid)
-        initial_score = self.evaluate_episode(self.policy, params.deterministic_eval, params)
-        self.list_weights.append(centroid)
-        # Set the weights with this random centroid
-
-        # Init the noise matrix
-        noise = np.diag(np.ones(self.policy.get_weights_dim()) * params.sigma)
         # Init the covariance matrix
-        var = np.diag(np.ones(self.policy.get_weights_dim()) * np.var(centroid)) + noise
-        # var=np.diag(np.ones(self.policy.get_weights_dim())*params.lr_actor**2)+noise
-        # Init the rng
-        rng = np.random.default_rng()
-        # Training Loop
-        with Bar("Performing a repetition of CEM", max=params.nb_cycles) as bar:  # pytype: disable=name-error
-            for cycle in range(params.nb_cycles):
-                rewards = np.zeros(params.population)
-                weights = rng.multivariate_normal(centroid, var, params.population)
-                for p in range(params.population):
-                    self.policy.set_weights(weights[p])
-                    batch = self.make_monte_carlo_batch(params.nb_trajs, params.render, self.policy, True)
-                    rewards[p] = batch.train_policy_cem(self.policy, params.bests_frac)
+        centroid = self.get_params()
+        self.init_var(centroid)
 
-                elites_nb = int(params.elites_frac * params.population)
-                elites_idxs = rewards.argsort()[-elites_nb:]
-                elites_weights = [weights[i] for i in elites_idxs]
-                # update the best weights
-                centroid = np.array(elites_weights).mean(axis=0)
-                var = np.cov(elites_weights, rowvar=False) + noise
-                self.env.write_cov(cycle, np.linalg.norm(var))
-                distance = np.linalg.norm(centroid - self.list_weights[-1])
-                self.env.write_distances(cycle, distance)
+        for iteration in range(nb_iterations):
+            callback.on_rollout_start()
+            self.one_loop(iter)
 
-                # policy evaluation part
-                self.policy.set_weights(centroid)
+            # Give access to local variables
+            callback.update_locals(locals())
+            if callback.on_step() is False:
+                return False
 
-                self.list_weights.append(self.policy.get_weights())
-                self.write_angles_global(cycle)
+            callback.on_rollout_end()
+        return True
 
-                # policy evaluation part
-                if (cycle % params.eval_freq) == 0:
-                    total_reward = self.evaluate_episode(self.policy, params.deterministic_eval, params)
-                    # write and store reward
-                    self.env.write_reward(cycle + 1, total_reward)
-                    self.list_rewards[cycle] = total_reward
+    def learn(
+        self,
+        total_timesteps: int = 100,
+        nb_iterations: int = 100,
+        callback: MaybeCallback = None,
+        log_interval: int = 100,
+        tb_log_name: str = "run",
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+    ) -> "BaseAlgorithm":
 
-                # Save best reward agent (no need for averaging if the policy is deterministic)
-                if self.best_reward < total_reward:
-                    self.best_reward = total_reward
-                    self.best_weights = self.list_weights[-1]
-                    self.best_weights_idx = cycle
-                # Save the best policy obtained
-                if (cycle % params.save_freq) == 0:
-                    raise NotImplementedError()
-                    # pw.save(method="CEM", cycle=cycle + 1, score=total_reward)
-                bar.next()
+        total_steps = total_timesteps
+        print(eval_env)
+        total_steps, callback = self._setup_learn(
+            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+        )
+        callback.on_training_start(locals(), globals())
+        training_ok = self.train(nb_iterations, callback=callback)
+        if not training_ok:
+            raise NotImplementedError("Collect rollout stopped unexpectedly")
 
-        # pw.rename_best(method="CEM",best_cycle=self.best_weights_idx,best_score=self.best_reward)
-        print("Best reward: ", self.best_reward)
-        print("Best reward iter: ", self.best_weights_idx)
+        callback.on_training_end()
+        return self

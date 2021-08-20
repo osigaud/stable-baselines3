@@ -59,7 +59,15 @@ class REINFORCE(BaseAlgorithm):
         gradient_name: str = "sum",
         beta: float = 0.0,
         max_episode_steps: Optional[int] = None,
+        policy_base: Type[BasePolicy] = ActorCriticPolicy,
         learning_rate: Union[float, Schedule] = 0.01,
+        tensorboard_log: Optional[str] = None,
+        policy_kwargs: Optional[Dict[str, Any]] = None,
+        verbose: int = 0,
+        device: Union[th.device, str] = "auto",
+        create_eval_env: bool = False,
+        seed: Optional[int] = None,
+        _init_setup_model: bool = True,
         n_steps: int = 5,
         gamma: float = 0.99,
         gae_lambda: float = 1.0,
@@ -69,14 +77,6 @@ class REINFORCE(BaseAlgorithm):
         optimizer_name: str = "adam",
         rms_prop_eps: float = 1e-5,
         normalize_advantage: bool = False,
-        policy_base: Type[BasePolicy] = ActorCriticPolicy,
-        tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
-        verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
-        _init_setup_model: bool = True,
         substract_baseline: bool = False,
         uses_entropy: bool = False,
         critic_estim_method: str = "td"
@@ -84,8 +84,8 @@ class REINFORCE(BaseAlgorithm):
         super(REINFORCE, self).__init__(
             policy,
             env,
-            learning_rate=learning_rate,
             policy_base=policy_base,
+            learning_rate=learning_rate,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -232,7 +232,6 @@ class REINFORCE(BaseAlgorithm):
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
-                # self.logger.record("time/collect episode", self.episode_num)
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
@@ -396,6 +395,7 @@ class REINFORCE(BaseAlgorithm):
     ) -> "BaseAlgorithm":
 
         total_steps = nb_rollouts * self.max_episode_steps
+        print(eval_env)
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
