@@ -185,6 +185,7 @@ class EpisodicBuffer(BaseBuffer):
         self.current_idx = 0
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
+
     def get_discounted_sum_rewards(self) -> None:
         """
         Apply a discounted sum of rewards to all samples of all episodes
