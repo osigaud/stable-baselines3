@@ -1,5 +1,7 @@
 import random
+
 import torch as th
+
 
 def continuous_mountain_car_expert_policy(time_step, var):
     """
@@ -16,4 +18,3 @@ def continuous_mountain_car_expert_policy(time_step, var):
         return th.tensor([[-1 + variation]])
     else:
         return th.tensor([[1 + variation]])
-

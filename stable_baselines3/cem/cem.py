@@ -4,16 +4,17 @@ import numpy as np
 import torch as th
 from gym import spaces
 
-from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.evaluation import evaluate_policy
 
 
 def evaluate(model, env) -> float:
     fitness, _ = evaluate_policy(model, env)
     return fitness
+
 
 def get_params_tmp(model) -> np.ndarray:
     mean_params = dict(
@@ -25,6 +26,7 @@ def get_params_tmp(model) -> np.ndarray:
     print(mean_params.values())
     print(params)
     return params
+
 
 class CEM(BaseAlgorithm):
     """
@@ -51,7 +53,7 @@ class CEM(BaseAlgorithm):
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
         pop_size: int = 20,
-        elit_frac_size: float = .2,
+        elit_frac_size: float = 0.2,
         sigma: float = 0.2,
         noise_multiplier: float = 0.999,
         policy_base: Type[BasePolicy] = ActorCriticPolicy,
@@ -121,7 +123,7 @@ class CEM(BaseAlgorithm):
         return tensor.detach().numpy().flatten()
 
     def get_params(self) -> np.ndarray:
-        return self.policy.parameters_to_vector() # note: also retrieves critic params...
+        return self.policy.parameters_to_vector()  # note: also retrieves critic params...
 
     def set_params(self, indiv) -> None:
         self.policy.load_from_vector(indiv.copy())
@@ -146,7 +148,7 @@ class CEM(BaseAlgorithm):
             self.set_params(weights[i])  # TODO: rather use a policy built on the fly
             scores[i] = evaluate(self.policy, self.env)
 
-        elites_idxs = scores.argsort()[-self.elites_nb:]
+        elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
         print("scores:", scores)
         self.logger.record("train/n_updates", iter, exclude="tensorboard")

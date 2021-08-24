@@ -3,8 +3,6 @@ import random
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-from stable_baselines3.her.her_replay_buffer import get_time_limit
-
 import numpy as np
 import torch
 from arguments import get_args
@@ -13,12 +11,12 @@ from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulu
 from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 from visu.visu_trajectories import plot_trajectory
 
-from stable_baselines3 import REINFORCE, CEM
+from stable_baselines3 import CEM, REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.monitor import Monitor
-
-from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -122,8 +120,13 @@ def test_reinforce() -> None:
             plot_crit(model, env, args.env_name, grads[i], final_string="pre")
 
         for rep in range(args.nb_repet):
-            model.learn(nb_epochs=10, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
-                        callback=eval_callback, log_interval=args.log_interval)
+            model.learn(
+                nb_epochs=10,
+                nb_rollouts=args.nb_rollouts,
+                reset_num_timesteps=rep == 0,
+                callback=eval_callback,
+                log_interval=args.log_interval,
+            )
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
@@ -199,8 +202,13 @@ def test_imitation_cmc() -> None:
         plot_pol(model, env, args.env_name, grads[i], final_string="imit")
         args.nb_rollouts = 20
         for rep in range(args.nb_repet):
-            model.learn(nb_epochs=20, nb_rollouts=args.nb_rollouts, reset_num_timesteps=rep == 0,
-                        callback=eval_callback, log_interval=args.log_interval)
+            model.learn(
+                nb_epochs=20,
+                nb_rollouts=args.nb_rollouts,
+                reset_num_timesteps=rep == 0,
+                callback=eval_callback,
+                log_interval=args.log_interval,
+            )
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
@@ -218,7 +226,7 @@ def test_cem() -> None:
     # args.env_name = "MountainCarContinuous-v0"
     args.nb_rollouts = 8
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-     # max_episode_steps = get_time_limit(env_vec, None)
+    # max_episode_steps = get_time_limit(env_vec, None)
     file_name = "cem_" + args.env_name
     log_file_name = log_dir + file_name
     eval_callback = EvalCallback(
@@ -249,6 +257,7 @@ def test_cem() -> None:
         plot_pol(model, env_vec, args.env_name, "cem", final_string="post")
 
     chrono.stop()
+
 
 if __name__ == "__main__":
     # init_test_reinforce()

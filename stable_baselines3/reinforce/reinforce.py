@@ -4,9 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from torch.nn import functional as func
-
 from gym import spaces
+from torch.nn import functional as func
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
@@ -79,7 +78,7 @@ class REINFORCE(BaseAlgorithm):
         normalize_advantage: bool = False,
         substract_baseline: bool = False,
         uses_entropy: bool = False,
-        critic_estim_method: str = "td"
+        critic_estim_method: str = "td",
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -138,7 +137,7 @@ class REINFORCE(BaseAlgorithm):
             self.action_space,
             self.lr_schedule,
             use_sde=False,
-            **self.policy_kwargs  # pytype:disable=not-instantiable
+            **self.policy_kwargs,  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
 
@@ -228,7 +227,9 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(self._last_obs, actions, values, rewards, log_probs, entropies, self._last_episode_starts, dones, infos)
+            rollout_buffer.add(
+                self._last_obs, actions, values, rewards, log_probs, entropies, self._last_episode_starts, dones, infos
+            )
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -296,9 +297,7 @@ class REINFORCE(BaseAlgorithm):
         self.policy.optimizer.step()
 
     def regress_policy(self):
-        """
-
-        """
+        """ """
         rollout_data = self.rollout_buffer.get_samples()
         obs = rollout_data.observations
         actions = rollout_data.actions
@@ -346,7 +345,6 @@ class REINFORCE(BaseAlgorithm):
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
         log_prob1 = rollout_data.old_log_prob
-
 
         obs = rollout_data.observations
         actions = rollout_data.actions
@@ -473,7 +471,7 @@ class REINFORCE(BaseAlgorithm):
 
         advantages = rollout_data.advantages
         # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
-            # print("advantages", advantages.shape, advantages)
+        # print("advantages", advantages.shape, advantages)
         target_values = rollout_data.returns
         # TODO: avoid second computation of everything because of the gradient
         values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)

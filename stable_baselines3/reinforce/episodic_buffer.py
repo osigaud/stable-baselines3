@@ -185,7 +185,6 @@ class EpisodicBuffer(BaseBuffer):
         self.current_idx = 0
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
-
     def get_discounted_sum_rewards(self) -> None:
         """
         Apply a discounted sum of rewards to all samples of all episodes
@@ -261,8 +260,7 @@ class EpisodicBuffer(BaseBuffer):
             self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
 
     def get_target_values_td(self) -> None:
-        """
-        """
+        """ """
         for ep in range(self.nb_rollouts):
             for step in reversed(range(self.episode_lengths[ep])):
                 if step == self.episode_lengths[ep] - 1:
@@ -274,8 +272,7 @@ class EpisodicBuffer(BaseBuffer):
                 self.target_values[ep, step] = target
 
     def get_target_values_mc(self) -> None:
-        """
-        """
+        """ """
         self.get_discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
             self.target_values[ep] = self.policy_returns[ep]
