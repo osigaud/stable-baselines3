@@ -8,8 +8,8 @@ import numpy as np
 import torch
 from arguments import get_args
 from chrono import Chrono
-from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
-from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
+from visu.visu_critics import plot_nd_critic, plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
+from visu.visu_policies import plot_nd_policy, plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
 from visu.visu_trajectories import plot_trajectory
 
 from stable_baselines3 import CEM, REINFORCE
@@ -31,8 +31,10 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
         plot_pendulum_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
         plot_cartpole_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
-    else:
+    elif env_name == "MountainCarContinuous-v0" or env_name == "MountainCar-v1":
         plot_2d_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
+    else:
+        plot_nd_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
 
 
 def plot_crit(model, env, env_name, gradient_name, final_string="post"):
@@ -41,8 +43,10 @@ def plot_crit(model, env, env_name, gradient_name, final_string="post"):
         plot_pendulum_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
         plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
-    else:
+    elif env_name == "MountainCarContinuous-v0" or env_name == "MountainCar-v1":
         plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+    else:
+        plot_nd_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
 
 
 def init_test_reinforce():
@@ -224,8 +228,9 @@ def test_cem() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "RexGallop-v0"
+    args.env_name = "RexWalk-v0"
     args.nb_rollouts = 8
+    # env = gym.make("Pendulum-v0", render=True)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     # max_episode_steps = get_time_limit(env_vec, None)
     file_name = "cem_" + args.env_name
@@ -239,7 +244,7 @@ def test_cem() -> None:
         deterministic=True,
         render=False,
     )
-    policy_kwargs = dict(net_arch=[dict(pi=[5, 5], vf=[10, 10])])
+    policy_kwargs = dict(net_arch=[dict(pi=[10, 10], vf=[10, 10])])
 
     model = CEM(
         "MlpPolicy",

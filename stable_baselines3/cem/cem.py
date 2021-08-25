@@ -147,6 +147,7 @@ class CEM(BaseAlgorithm):
         for i in range(self.pop_size):
             self.set_params(weights[i])  # TODO: rather use a policy built on the fly
             scores[i] = evaluate(self.policy, self.env)
+            print("indiv:", i, " score:", scores[i])
 
         elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
@@ -194,7 +195,6 @@ class CEM(BaseAlgorithm):
     ) -> "BaseAlgorithm":
 
         total_steps = total_timesteps
-        print(eval_env)
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
