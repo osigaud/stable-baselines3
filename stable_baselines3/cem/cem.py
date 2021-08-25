@@ -36,7 +36,7 @@ class CEM(BaseAlgorithm):
         self,
         policy: Union[str, Type[CEMPolicy]],
         env: Union[GymEnv, str],
-        pop_size: int = 20,
+        pop_size: int = 10,
         elit_frac_size: float = 0.2,
         sigma: float = 0.2,
         noise_multiplier: float = 0.999,

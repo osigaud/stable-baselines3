@@ -228,11 +228,11 @@ def test_cem() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "CartPole-v1"
+    args.env_name = "RexWalk-v0"
     args.nb_rollouts = 8
     env = gym.make(args.env_name)
     # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-    env.render()
+    # env.render()
     # max_episode_steps = get_time_limit(env_vec, None)
     file_name = "cem_" + args.env_name
     log_file_name = log_dir + file_name
@@ -243,9 +243,9 @@ def test_cem() -> None:
         eval_freq=1,
         n_eval_episodes=2,
         deterministic=True,
-        render=False,
+        render=True,
     )
-    policy_kwargs = dict(net_arch=[dict(pi=[10, 10], vf=[10, 10])])
+    policy_kwargs = dict(net_arch=[10, 10])
 
     model = CEM(
         "MlpPolicy",
