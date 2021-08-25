@@ -3,13 +3,13 @@ import random
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
 import numpy as np
+import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
 import torch
 from arguments import get_args
 from chrono import Chrono
-from visu.visu_critics import plot_nd_critic, plot_2d_critic, plot_cartpole_critic, plot_pendulum_critic
-from visu.visu_policies import plot_nd_policy, plot_2d_policy, plot_cartpole_policy, plot_pendulum_policy
+from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_nd_critic, plot_pendulum_critic
+from visu.visu_policies import plot_2d_policy, plot_cartpole_policy, plot_nd_policy, plot_pendulum_policy
 from visu.visu_trajectories import plot_trajectory
 
 from stable_baselines3 import CEM, REINFORCE
