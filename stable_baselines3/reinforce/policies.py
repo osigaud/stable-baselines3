@@ -10,14 +10,11 @@ from stable_baselines3.common.distributions import (
     DiagGaussianDistribution,
     Distribution,
     MultiCategoricalDistribution,
-    StateDependentNoiseDistribution,
     make_proba_distribution,
 )
 from stable_baselines3.common.policies import BasePolicy, register_policy
-from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
-    CombinedExtractor,
     FlattenExtractor,
     NatureCNN,
     create_mlp,
@@ -64,7 +61,6 @@ class Actor(BasePolicy):
         self.features_dim = features_dim
         self.activation_fn = activation_fn
 
-        action_dim = get_action_dim(self.action_space)
         latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn, squash_output=False)
 
         self.last_layer_dim = net_arch[-1] if len(net_arch) > 0 else features_dim
