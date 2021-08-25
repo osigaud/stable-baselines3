@@ -3,6 +3,7 @@ import random
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
+import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
 import numpy as np
 import torch
 from arguments import get_args
@@ -217,13 +218,13 @@ def test_imitation_cmc() -> None:
 
 
 def test_cem() -> None:
-    plot_policies = True
+    plot_policies = False
     args = get_args()
     chrono = Chrono()
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    # args.env_name = "MountainCarContinuous-v0"
+    args.env_name = "RexGallop-v0"
     args.nb_rollouts = 8
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     # max_episode_steps = get_time_limit(env_vec, None)
