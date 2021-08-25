@@ -249,7 +249,7 @@ class REINFORCE(BaseAlgorithm):
         elif self.critic_estim_method == "td":
             self.rollout_buffer.get_target_values_td()
         elif self.critic_estim_method == "n steps":
-            self.rollout_buffer.get_target_values_nsteps()
+            self.rollout_buffer.get_n_step_return()
         else:
             raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
 
