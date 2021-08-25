@@ -22,12 +22,10 @@ Schedule = Callable[[float], float]
 
 
 class RolloutBufferSamples(NamedTuple):
-    # TODO Warning : added old_entropy!!!
     observations: th.Tensor
     actions: th.Tensor
     old_values: th.Tensor
     old_log_prob: th.Tensor
-    old_entropy: th.Tensor
     advantages: th.Tensor
     returns: th.Tensor
 
