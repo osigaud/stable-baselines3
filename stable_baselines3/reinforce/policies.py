@@ -366,10 +366,10 @@ class REINFORCEPolicy(BasePolicy):
         return Critic(**critic_kwargs).to(self.device)
 
     def forward(self, observation: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor]:
-        return self.actor(observation, deterministic), self.critic(observation)
+        return self.actor._predict(observation, deterministic), self.critic(observation)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        return self.actor(observation, deterministic)
+        return self.actor._predict(observation, deterministic)
 
 
 MlpPolicy = REINFORCEPolicy

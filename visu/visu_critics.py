@@ -59,7 +59,7 @@ def plot_2d_critic(
             # Be careful to fill the matrix in the right order
             obs = np.array([[x, y]])
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -100,7 +100,7 @@ def plot_nd_critic(
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -140,7 +140,7 @@ def plot_qfunction_1d(
             # Be careful to fill the matrix in the right order
             obs = np.array([x])
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -179,7 +179,7 @@ def plot_qfunction_cont_act(
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
             obs = np.array([[x, y]])
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -213,7 +213,7 @@ def plot_pendulum_critic(model, env, deterministic, plot=True, figname="pendulum
         for index_td, td in enumerate(np.linspace(state_min[2], state_max[2], num=definition)):
             obs = np.array([[np.cos(t), np.sin(t), td]])
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_td), index_t] = value.item()
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
@@ -263,7 +263,7 @@ def plot_cartpole_critic(
             # Add batch dim
             obs = obs.reshape(1, -1)
             with th.no_grad():
-                _, value, _ = model.forward(obs_as_tensor(obs, model.device), deterministic=deterministic)
+                value = model.critic.forward(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))

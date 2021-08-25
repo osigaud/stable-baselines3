@@ -102,7 +102,7 @@ def test_reinforce() -> None:
             deterministic=True,
             render=False,
         )
-        policy_kwargs = dict(net_arch=[dict(pi=[100, 100], vf=[100, 100])])
+        policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]))
 
         model = REINFORCE(
             "MlpPolicy",
@@ -171,7 +171,7 @@ def test_imitation_cmc() -> None:
             deterministic=True,
             render=False,
         )
-        policy_kwargs = dict(net_arch=[dict(pi=[5, 5], vf=[10, 10])])
+        policy_kwargs = dict(net_arch=dict(pi=[5, 5], vf=[10, 10]))
 
         model = REINFORCE(
             "MlpPolicy",
