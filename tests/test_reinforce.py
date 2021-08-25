@@ -10,14 +10,14 @@ from stable_baselines3 import REINFORCE
         "beta",
         "sum",
         "discount",
-        "normalize",
-        "baseline",
-        "n_step",
+        "normalized sum",
+        # "baseline",
+        # "n_step",
         "gae",
     ],
 )
-@pytest.mark.parametrize("nb_rollouts", [1, 3])
-def test_reinforce(gradient_name, nb_rollouts):
+# @pytest.mark.parametrize("nb_rollouts", [1, 3])
+def test_reinforce(gradient_name):
     # Make numpy throw exceptions
     np.seterr(all="raise")
     kwargs = dict(beta=0.9) if gradient_name == "beta" else {}
@@ -27,7 +27,9 @@ def test_reinforce(gradient_name, nb_rollouts):
         gradient_name=gradient_name,
         seed=1,
         verbose=1,
-        nb_rollouts=nb_rollouts,
+        # TODO(olivier): re-add automatic max episode steps detection
+        max_episode_steps=500,
+        # nb_rollouts=nb_rollouts,
         **kwargs,
     )
-    model.learn(1000)
+    model.learn(nb_epochs=10, log_interval=2)

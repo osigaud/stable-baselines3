@@ -9,12 +9,12 @@ from torch.nn import functional as func
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
+from stable_baselines3.reinforce.policies import REINFORCEPolicy
 
 
 class REINFORCE(BaseAlgorithm):
@@ -53,12 +53,12 @@ class REINFORCE(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[ActorCriticPolicy]],
+        policy: Union[str, Type[REINFORCEPolicy]],
         env: Union[GymEnv, str],
         gradient_name: str = "sum",
         beta: float = 0.0,
         max_episode_steps: Optional[int] = None,
-        policy_base: Type[BasePolicy] = ActorCriticPolicy,
+        policy_base: Type[REINFORCEPolicy] = REINFORCEPolicy,
         learning_rate: Union[float, Schedule] = 0.01,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -136,13 +136,18 @@ class REINFORCE(BaseAlgorithm):
             self.observation_space,
             self.action_space,
             self.lr_schedule,
-            use_sde=False,
             **self.policy_kwargs,  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
+        # Aliases
+        self.actor = self.policy.actor
+        self.critic = self.policy.critic
+
+    def _excluded_save_params(self) -> List[str]:
+        return super()._excluded_save_params() + ["actor", "critic"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
-        state_dicts = ["policy", "policy.optimizer"]
+        state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
         return state_dicts, []
 
     def init_buffer(self, nb_rollouts):
@@ -198,12 +203,10 @@ class REINFORCE(BaseAlgorithm):
                     values = 0
                     entropies = 0
                 else:
-                    actions, values, log_probs = self.policy.forward(obs_tensor)
-                    latent_pi, latent_vf, latent_sde = self.policy._get_latent(obs_tensor)
-                    distributions = self.policy._get_action_dist_from_latent(latent_pi, latent_sde)
-                    entropies = distributions.entropy()
+                    actions, log_probs = self.actor.forward(obs_tensor)
+                    # Note(antonin): value computation is probably not needed anymore here
+                    values = self.critic.forward(obs_tensor)
                     actions = actions.cpu().numpy()
-                    # values = self.policy.value_net(latent_vf) # TODO: two ways to compute values, via forward or via value net
 
             # Rescale and perform action
             clipped_actions = actions
@@ -227,9 +230,7 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(
-                self._last_obs, actions, values, rewards, log_probs, entropies, self._last_episode_starts, dones, infos
-            )
+            rollout_buffer.add(self._last_obs, actions, values, rewards, log_probs, self._last_episode_starts, dones, infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -255,9 +256,8 @@ class REINFORCE(BaseAlgorithm):
         # Get all data in one go
         rollout_data = self.rollout_buffer.get_samples()
 
-        log_prob = rollout_data.old_log_prob
-        entropy = rollout_data.old_entropy
-        values1 = rollout_data.old_values
+        # log_prob = rollout_data.old_log_prob
+        # old_values = rollout_data.old_values
         target_values = rollout_data.returns
 
         obs = rollout_data.observations
@@ -265,14 +265,17 @@ class REINFORCE(BaseAlgorithm):
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
             actions = actions.long().flatten()
-        # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+
+        log_prob, entropy = self.actor.evaluate_actions(obs, actions)
+        values = self.critic(obs).flatten()
 
         # print("v", values)
         # print("v1", values1)
 
         value_loss = func.mse_loss(target_values, values)
         # print("value loss", value_loss)
+
+        # Note(antonin): entropy loss should be with the actor
         # Entropy loss favors exploration
         if self.uses_entropy:
             if entropy is None:
@@ -288,13 +291,13 @@ class REINFORCE(BaseAlgorithm):
         self.logger.record("train/value_loss", value_loss.item())
 
         # Optimization step
-        self.policy.optimizer.zero_grad()
+        self.critic.optimizer.zero_grad()
         total_loss.backward()
 
         if self.clip_grad:
             # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-        self.policy.optimizer.step()
+            th.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+        self.critic.optimizer.step()
 
     def regress_policy(self):
         """ """
@@ -337,22 +340,22 @@ class REINFORCE(BaseAlgorithm):
         Update policy using the currently gathered
         rollout buffer (one gradient step over whole data).
         """
-        # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
+        # Update learning rate according to lr schedule
+        self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 
         self.compute_critic()
 
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
-        log_prob1 = rollout_data.old_log_prob
+        # old_log_prob = rollout_data.old_log_prob
 
         obs = rollout_data.observations
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
             actions = actions.long().flatten()
-        # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
+
+        log_prob, entropy = self.actor.evaluate_actions(obs, actions)
 
         # print("lp 358", log_prob)
         # print("lp1", log_prob1)
@@ -363,13 +366,13 @@ class REINFORCE(BaseAlgorithm):
         # print("total loss", total_loss)
 
         # Optimization step
-        self.policy.optimizer.zero_grad()
+        self.actor.optimizer.zero_grad()
         total_loss.backward()
 
         if self.clip_grad:
             # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-        self.policy.optimizer.step()
+            th.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+        self.actor.optimizer.step()
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
