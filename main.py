@@ -228,15 +228,16 @@ def test_cem() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "RexWalk-v0"
+    args.env_name = "CartPole-v1"
     args.nb_rollouts = 8
-    # env = gym.make("Pendulum-v0", render=True)
-    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    env = gym.make(args.env_name)
+    # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    env.render()
     # max_episode_steps = get_time_limit(env_vec, None)
     file_name = "cem_" + args.env_name
     log_file_name = log_dir + file_name
     eval_callback = EvalCallback(
-        env_vec,
+        env,
         best_model_save_path=log_dir + "bests/",
         log_path=log_dir,
         eval_freq=1,
@@ -256,11 +257,11 @@ def test_cem() -> None:
         tensorboard_log=log_file_name,
     )
     if plot_policies:
-        plot_pol(model, env_vec, args.env_name, "cem", final_string="pre")
+        plot_pol(model, env, args.env_name, "cem", final_string="pre")
 
     model.learn(reset_num_timesteps=True, callback=eval_callback, log_interval=args.log_interval)
     if plot_policies:
-        plot_pol(model, env_vec, args.env_name, "cem", final_string="post")
+        plot_pol(model, env, args.env_name, "cem", final_string="post")
 
     chrono.stop()
 
