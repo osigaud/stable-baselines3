@@ -304,6 +304,9 @@ def get_actor_critic_arch(net_arch: Union[List[int], Dict[str, List[int]]]) -> T
     else:
         assert isinstance(net_arch, dict), "Error: the net_arch can only contain be a list of ints or a dict"
         assert "pi" in net_arch, "Error: no key 'pi' was provided in net_arch for the actor network"
-        assert "qf" in net_arch, "Error: no key 'qf' was provided in net_arch for the critic network"
-        actor_arch, critic_arch = net_arch["pi"], net_arch["qf"]
+        if "vf" in net_arch:
+            actor_arch, critic_arch = net_arch["pi"], net_arch["vf"]
+        else:
+            assert "qf" in net_arch, "Error: no key 'qf' was provided in net_arch for the critic network"
+            actor_arch, critic_arch = net_arch["pi"], net_arch["qf"]
     return actor_arch, critic_arch
