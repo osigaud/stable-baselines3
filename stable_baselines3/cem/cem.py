@@ -1,31 +1,15 @@
+import time
 from typing import Any, Dict, Optional, Type, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
 
+from stable_baselines3.cem.policies import CEMPolicy
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
-from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-
-
-def evaluate(model, env) -> float:
-    fitness, _ = evaluate_policy(model, env)
-    return fitness
-
-
-def get_params_tmp(model) -> np.ndarray:
-    mean_params = dict(
-        (key, value)
-        for key, value in model.state_dict().items()
-        if ("policy" in key or "shared_net" in key or "action" in key)
-    )
-    params = model._params_to_vector(model.policy)
-    print(mean_params.values())
-    print(params)
-    return params
 
 
 class CEM(BaseAlgorithm):
@@ -50,13 +34,13 @@ class CEM(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[ActorCriticPolicy]],
+        policy: Union[str, Type[CEMPolicy]],
         env: Union[GymEnv, str],
         pop_size: int = 20,
         elit_frac_size: float = 0.2,
         sigma: float = 0.2,
         noise_multiplier: float = 0.999,
-        policy_base: Type[BasePolicy] = ActorCriticPolicy,
+        policy_base: Type[BasePolicy] = CEMPolicy,
         learning_rate: Union[float, Schedule] = 7e-4,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -81,12 +65,8 @@ class CEM(BaseAlgorithm):
             supported_action_spaces=(
                 spaces.Box,
                 spaces.Discrete,
-                spaces.MultiDiscrete,
-                spaces.MultiBinary,
             ),
         )
-
-        self.rng = np.random.default_rng()
 
         self.pop_size = pop_size
         self.elit_frac_size = elit_frac_size
@@ -95,7 +75,7 @@ class CEM(BaseAlgorithm):
         self.sigma = sigma
         self.noise = None
         self.var = None
-        self.d3rlpy_model = True
+        self.rng = None
 
         self.noise_multiplier = noise_multiplier
 
@@ -103,20 +83,16 @@ class CEM(BaseAlgorithm):
             self._setup_model()
 
     def _setup_model(self) -> None:
-        self._setup_lr_schedule()
         self.set_random_seed(self.seed)
+        self.rng = np.random.default_rng(self.seed)
 
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
-            self.observation_space,
-            self.action_space,
-            self.lr_schedule,
-            use_sde=False,
-            **self.policy_kwargs  # pytype:disable=not-instantiable
+            self.observation_space, self.action_space, **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
         params = self.get_params()
         self.policy_dim = params.shape[0]
-        print("policy dim:", self.policy_dim)
+        print(f"policy dim: {self.policy_dim}")
 
     @staticmethod
     def to_numpy(tensor):
@@ -138,7 +114,7 @@ class CEM(BaseAlgorithm):
         self.noise = np.diag(np.ones(self.policy_dim) * self.sigma)
         self.var = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
 
-    def one_loop(self, iter: int) -> None:
+    def one_loop(self, n_iter: int) -> None:
         centroid = self.get_params()
         self.update_noise()
         scores = np.zeros(self.pop_size)
@@ -146,21 +122,46 @@ class CEM(BaseAlgorithm):
 
         for i in range(self.pop_size):
             self.set_params(weights[i])  # TODO: rather use a policy built on the fly
-            scores[i] = evaluate(self.policy, self.env)
-            print("indiv:", i, " score:", scores[i])
+            # TODO: repalce n_eval_episodes by a parameter
+            episode_rewards, episode_lengths = evaluate_policy(
+                self.policy, self.env, n_eval_episodes=5, return_episode_rewards=True
+            )
+            scores[i] = np.mean(episode_rewards)
+            self.num_timesteps += sum(episode_lengths)
+            print(f"indiv: {i} score {scores[i]}")
 
         elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
         print("scores:", scores)
-        self.logger.record("train/n_updates", iter, exclude="tensorboard")
+        self.logger.record("train/n_updates", n_iter, exclude="tensorboard")
+        self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", scores[-1])
+        self._dump_logs()
+
         elites_weights = [weights[i] for i in elites_idxs]
         # update the best weights
         centroid = np.array(elites_weights).mean(axis=0)
         self.var = np.cov(elites_weights, rowvar=False) + self.noise
         self.set_params(centroid)
 
-    def train(self, nb_iterations: int, callback: BaseCallback) -> None:
+    def _dump_logs(self) -> None:
+        """
+        Write log.
+        """
+        time_elapsed = time.time() - self.start_time
+        fps = int(self.num_timesteps / (time_elapsed + 1e-8))
+        # self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
+        # if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+        #     self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+        #     self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("time/fps", fps)
+        self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
+        self.logger.record("time/total timesteps", self.num_timesteps, exclude="tensorboard")
+
+        # Pass the number of timesteps for tensorboard
+        self.logger.dump(step=self.num_timesteps)
+
+    def train(self, nb_iterations: int, callback: BaseCallback) -> bool:
         """
         The main function to learn policies using the Cross Entropy Method
         """
@@ -168,9 +169,9 @@ class CEM(BaseAlgorithm):
         centroid = self.get_params()
         self.init_var(centroid)
 
-        for iteration in range(nb_iterations):
+        for iteration in range(1, nb_iterations + 1):
             callback.on_rollout_start()
-            self.one_loop(iter)
+            self.one_loop(iteration)
 
             # Give access to local variables
             callback.update_locals(locals())
@@ -200,8 +201,9 @@ class CEM(BaseAlgorithm):
         )
         callback.on_training_start(locals(), globals())
         training_ok = self.train(nb_iterations, callback=callback)
-        if not training_ok:
-            raise NotImplementedError("Collect rollout stopped unexpectedly")
+        # Can be stopped early with a callback
+        # if not training_ok:
+        #     raise NotImplementedError("Collect rollout stopped unexpectedly")
 
         callback.on_training_end()
         return self
