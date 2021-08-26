@@ -31,7 +31,7 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
         plot_pendulum_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
         plot_cartpole_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
-    elif env_name == "MountainCarContinuous-v0" or env_name == "MountainCar-v1":
+    elif env.observation_space.shape[0] == 2:
         plot_2d_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
     else:
         plot_nd_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
@@ -43,7 +43,7 @@ def plot_crit(model, env, env_name, gradient_name, final_string="post"):
         plot_pendulum_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
         plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
-    elif env_name == "MountainCarContinuous-v0" or env_name == "MountainCar-v1":
+    elif env.observation_space.shape[0] == 2:
         plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
     else:
         plot_nd_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
@@ -75,8 +75,8 @@ def test_reinforce() -> None:
     # args.env_name = "Pendulum-v0"
     # args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
-    args.gradients = ["discount"]
-    # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
+    # args.gradients = ["discount"]
+    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
     use_baseline = False
     args.nb_rollouts = 50
     args.critic_estim_method = "mc"
@@ -86,7 +86,6 @@ def test_reinforce() -> None:
     # env_wrapped = Monitor(eval_env, log_dir)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     max_episode_steps = get_time_limit(env_vec, None)
-    print("max steps:", max_episode_steps)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
@@ -268,6 +267,6 @@ def test_cem() -> None:
 
 if __name__ == "__main__":
     # init_test_reinforce()
-    # test_reinforce()
+    test_reinforce()
     # test_imitation_cmc()
-    test_cem()
+    # test_cem()

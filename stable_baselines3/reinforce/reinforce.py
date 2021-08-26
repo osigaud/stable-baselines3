@@ -198,10 +198,6 @@ class REINFORCE(BaseAlgorithm):
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 if expert_pol:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
-                    # TODO : pas élégant du tout...
-                    log_probs = 0
-                    values = 0
-                    entropies = 0
                 else:
                     actions, log_probs = self.actor.forward(obs_tensor)
                     # Note(antonin): value computation is probably not needed anymore here
@@ -380,34 +376,6 @@ class REINFORCE(BaseAlgorithm):
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
-    def learn(
-        self,
-        nb_epochs: int,
-        nb_rollouts: int = 1,
-        callback: MaybeCallback = None,
-        log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        tb_log_name: str = "REINFORCE",
-        eval_log_path: Optional[str] = None,
-        reset_num_timesteps: bool = True,
-        expert_pol: bool = False,
-    ) -> "BaseAlgorithm":
-
-        total_steps = nb_rollouts * self.max_episode_steps
-        print(eval_env)
-        total_steps, callback = self._setup_learn(
-            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
-        )
-        self.init_buffer(nb_rollouts)
-        callback.on_training_start(locals(), globals())
-        for i in range(nb_epochs):
-            self.logger.record("time/iterations", i, exclude="tensorboard")
-            self.learn_one_epoch(total_steps, callback)
-        callback.on_training_end()
-        return self
-
     def learn_one_epoch(
         self,
         total_time_steps: int,
@@ -416,8 +384,7 @@ class REINFORCE(BaseAlgorithm):
     ) -> None:
 
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
-        if not collect_ok:
-            raise NotImplementedError("Collect rollout stopped unexpectedly")
+        assert collect_ok, "Collect rollout stopped unexpectedly"
 
         self.post_processing()
         self._update_current_progress_remaining(self.num_timesteps, total_time_steps)
@@ -451,70 +418,47 @@ class REINFORCE(BaseAlgorithm):
         )
         self.init_buffer(nb_rollouts)
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
-        if not collect_ok:
-            raise NotImplementedError("Collect rollout stopped unexpectedly")
+        assert collect_ok, "Collect rollout stopped unexpectedly"
         self.regress_policy()
 
-    def old_train(self) -> None:
-        """
-        Update policy using the currently gathered
-        rollout buffer (one gradient step over whole data).
-        """
-        # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
+    def learn(
+        self,
+        total_time_steps: int = None,
+        nb_epochs: int = None,
+        nb_rollouts: int = 1,
+        callback: MaybeCallback = None,
+        log_interval: int = 1,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "REINFORCE",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        expert_pol: bool = False,
+    ) -> "BaseAlgorithm":
 
-        # Get all data in one go
-        rollout_data = self.rollout_buffer.get_samples()
-
-        obs = rollout_data.observations
-        actions = rollout_data.actions
-        if isinstance(self.action_space, spaces.Discrete):
-            # Convert discrete action from float to long
-            actions = actions.long().flatten()
-
-        advantages = rollout_data.advantages
-        # if self.gradient_name == "normalized sum" or self.gradient_name == "normalized discounted":
-        # print("advantages", advantages.shape, advantages)
-        target_values = rollout_data.returns
-        # TODO: avoid second computation of everything because of the gradient
-        values, log_prob, entropy = self.policy.evaluate_actions(obs, actions)
-        values = values.flatten()
-
-        # Policy gradient loss
-        policy_loss = -(advantages * log_prob).mean()
-        # print("policy loss", policy_loss)
-
-        if self.gradient_name == "baseline" or self.gradient_name == "gae" or self.gradient_name == "n step":
-            # Value loss using the TD(gae_lambda) target
-            value_loss = func.mse_loss(target_values, values)
-            # print("value loss", value_loss)
-
-            # Entropy loss favors exploration
-            if entropy is None:
-                # Approximate entropy when no analytical form
-                entropy_loss = -th.mean(-log_prob)
-            else:
-                entropy_loss = -th.mean(entropy)
-
-            compound_value_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
-            total_loss = policy_loss + compound_value_loss
-            self.logger.record("train/value_loss", value_loss.item())
-            self.logger.record("train/entropy_loss", entropy_loss.item())
+        assert total_time_steps is not None or nb_epochs is not None, \
+            "You must specify either a total number of time steps or a number of epochs"
+        if total_time_steps is None:
+            total_steps = nb_rollouts * self.max_episode_steps
         else:
-            total_loss = policy_loss
-        # print("total loss", total_loss)
+            total_steps = total_time_steps
+        total_steps, callback = self._setup_learn(
+            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+        )
+        self.init_buffer(nb_rollouts)
+        callback.on_training_start(locals(), globals())
 
-        # Optimization step
-        self.policy.optimizer.zero_grad()
-        total_loss.backward()
+        if total_time_steps is None:
+            for i in range(nb_epochs):
+                self.logger.record("time/iterations", i, exclude="tensorboard")
+                self.learn_one_epoch(total_steps, callback)
+        else:
+            i = 0
+            while self.num_timesteps < total_time_steps:
+                i += 1
+                self.logger.record("time/iterations", i, exclude="tensorboard")
+                self.learn_one_epoch(total_steps, callback)
 
-        if self.clip_grad:
-            # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-        self.policy.optimizer.step()
-
-        self._n_updates += 1
-        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        self.logger.record("train/policy_loss", policy_loss.item())
-        if hasattr(self.policy, "log_std"):
-            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+        callback.on_training_end()
+        return self
