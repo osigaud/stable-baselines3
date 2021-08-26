@@ -115,16 +115,6 @@ class REINFORCE(BaseAlgorithm):
         self.rollout_buffer = None
         self.critic_estim_method = critic_estim_method
 
-        # Update optimizer inside the policy if we want to use RMSProp
-        # (original implementation) rather than Adam
-        if "optimizer_class" not in self.policy_kwargs:
-            if optimizer_name == "rmsprop":
-                self.policy_kwargs["optimizer_class"] = th.optim.RMSprop
-                self.policy_kwargs["optimizer_kwargs"] = dict(alpha=0.99, eps=rms_prop_eps, weight_decay=0)
-            elif optimizer_name == "sgd":
-                self.policy_kwargs["optimizer_class"] = th.optim.SGD
-                # TODO: missing kwargs?
-
         if _init_setup_model:
             self._setup_model()
 
@@ -236,7 +226,7 @@ class REINFORCE(BaseAlgorithm):
         callback.on_rollout_end()
         return True
 
-    def compute_critic(self):
+    def update_critic(self):
         """
         The method assumes a rollout has already been collected, the rollout buffer is ready
         """
@@ -339,7 +329,7 @@ class REINFORCE(BaseAlgorithm):
         # Update learning rate according to lr schedule
         self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 
-        self.compute_critic()
+        self.update_critic()
 
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
@@ -351,10 +341,7 @@ class REINFORCE(BaseAlgorithm):
             # Convert discrete action from float to long
             actions = actions.long().flatten()
 
-        log_prob, entropy = self.actor.evaluate_actions(obs, actions)
-
-        # print("lp 358", log_prob)
-        # print("lp1", log_prob1)
+        log_prob, _ = self.actor.evaluate_actions(obs, actions)
 
         # Policy gradient loss
         policy_loss = -(advantages * log_prob).mean()
