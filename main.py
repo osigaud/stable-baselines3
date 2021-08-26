@@ -5,7 +5,6 @@ import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
 import numpy as np
 import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
-import torch
 from arguments import get_args
 from chrono import Chrono
 from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_nd_critic, plot_pendulum_critic
@@ -15,9 +14,7 @@ from visu.visu_trajectories import plot_trajectory
 from stable_baselines3 import CEM, REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 
 def plot_pol(model, env, env_name, gradient_name, final_string="post"):
@@ -46,7 +43,7 @@ def plot_crit(model, env, env_name, gradient_name, final_string="post"):
 
 def init_test_reinforce():
     args = get_args()
-    env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
+    # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     model = REINFORCE(
         "MlpPolicy",
         args.env_name,
@@ -76,7 +73,6 @@ def test_reinforce() -> None:
     # Create and wrap the environment
     env = gym.make(args.env_name)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-    max_episode_steps = get_time_limit(env_vec, None)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
@@ -107,7 +103,6 @@ def test_reinforce() -> None:
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
             use_baseline=use_baseline,
-            max_episode_steps=max_episode_steps,
             critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
@@ -145,7 +140,6 @@ def test_imitation_cmc() -> None:
     # Create and wrap the environment
     env = gym.make(args.env_name)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-    max_episode_steps = get_time_limit(env_vec, None)
     grads = args.gradients
     for i in range(len(grads)):
         file_name = grads[i] + "_" + args.env_name
@@ -175,7 +169,6 @@ def test_imitation_cmc() -> None:
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
             use_baseline=use_baseline,
-            max_episode_steps=max_episode_steps,
             critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
@@ -220,7 +213,6 @@ def test_cem() -> None:
     env = gym.make(args.env_name)
     # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     # env.render()
-    # max_episode_steps = get_time_limit(env_vec, None)
     file_name = "cem_" + args.env_name
     log_file_name = log_dir + file_name
     eval_callback = EvalCallback(
