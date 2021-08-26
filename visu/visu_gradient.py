@@ -14,12 +14,13 @@ def visu_replay_data(list_states, list_targets) -> None:
     :return: nothing
     """
     bx1, bx2, bx3, bx4 = zip(*list_states)
+    print(bx1, bx2, bx3, bx4)
     plt.figure(figsize=(10, 4))
     plt.scatter(bx1, list_targets, color="blue")
     plt.title("Regression Analysis")
     plt.xlabel("Feature")
-    plt.ylabel("Value and target")
-    plt.savefig("./regress/data_regress.pdf")
+    plt.ylabel("Target values")
+    plt.savefig("./data/plots/data_regress.pdf")
     plt.show()
 
 

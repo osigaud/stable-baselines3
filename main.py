@@ -70,13 +70,13 @@ def test_reinforce() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
-    # args.env_name = "CartPole-v1"
+    args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount"]
     args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
     use_baseline = True
     args.nb_rollouts = 50
-    args.critic_estim_method = "mc"
+    args.critic_estim_method = "td"
     # Create and wrap the environment
     env = gym.make(args.env_name)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)

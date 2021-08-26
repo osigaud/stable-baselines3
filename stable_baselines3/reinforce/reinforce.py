@@ -16,6 +16,7 @@ from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 from stable_baselines3.reinforce.policies import REINFORCEPolicy
 
+from visu.visu_gradient import visu_replay_data
 
 class REINFORCE(BaseAlgorithm):
     """
@@ -275,6 +276,7 @@ class REINFORCE(BaseAlgorithm):
         obs = rollout_data.observations
 
         values = self.critic(obs).flatten()
+        visu_replay_data(obs,target_values)
 
         value_loss = func.mse_loss(target_values, values)
 
@@ -291,9 +293,6 @@ class REINFORCE(BaseAlgorithm):
         """
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
-        # print("size", self.rollout_buffer.size())
-        # print("reinf 294 : size, advs", advantages.shape, advantages)
-        # print("sizes", self.rollout_buffer.episode_lengths)
 
         obs = rollout_data.observations
         values = self.critic(obs).flatten()
@@ -305,6 +304,11 @@ class REINFORCE(BaseAlgorithm):
         log_prob, _ = self.actor.evaluate_actions(obs, actions)
 
         # Policy gradient loss
+        # print("size", self.rollout_buffer.size())
+        # print("reinf 294 : size, advs", advantages.shape, advantages)
+        # print("reinf 294 : size, values", values.shape, values)
+        # print("sizes", self.rollout_buffer.episode_lengths)
+
         if self.use_baseline:
             advantages -= values
         policy_loss = -(advantages * log_prob).mean()
@@ -333,8 +337,8 @@ class REINFORCE(BaseAlgorithm):
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        if hasattr(self.policy, "log_std"):
-            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+        if hasattr(self.actor, "log_std"):
+            self.logger.record("train/std", th.exp(self.actor.log_std).mean().item())
 
     def learn_one_epoch(
         self,
