@@ -6,7 +6,7 @@ from gym import spaces
 
 from stable_baselines3.common.buffers import BaseBuffer
 from stable_baselines3.common.preprocessing import get_obs_shape
-from stable_baselines3.common.type_aliases import ReplayBufferSamples, RolloutBufferSamples
+from stable_baselines3.common.type_aliases import ReplayBufferSamples, RolloutBufferSamples, EpisodicRolloutBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
 
@@ -82,19 +82,6 @@ class EpisodicBuffer(BaseBuffer):
 
         assert self.n_envs == 1, "Episodic buffer only supports single env for now"
 
-        self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        # input dimensions for buffer initialization
-        self.input_shape = {
-            "observation": (self.n_envs,) + self.obs_shape,
-            "action": (self.action_dim,),
-        }
-        self._buffer = {
-            key: np.zeros((self.nb_rollouts, self.max_episode_steps, *dim), dtype=np.float32)
-            for key, dim in self.input_shape.items()
-        }
         self.reset()
 
     def add(
@@ -122,17 +109,16 @@ class EpisodicBuffer(BaseBuffer):
             self.store_episode()
             self.episode_steps = 0
 
-    def get_samples(self) -> RolloutBufferSamples:
+    def get_samples(self) -> EpisodicRolloutBufferSamples:
 
         total_steps = sum(self.episode_lengths)
         all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
         all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
         all_episodes = all_episodes.astype(np.uint64)
         # Retrieve all transition and flatten the arrays
-        return RolloutBufferSamples(
+        return EpisodicRolloutBufferSamples(
             self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
-            self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
         )
@@ -171,6 +157,19 @@ class EpisodicBuffer(BaseBuffer):
         """
         Reset the buffer.
         """
+        self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        # input dimensions for buffer initialization
+        self.input_shape = {
+            "observation": (self.n_envs,) + self.obs_shape,
+            "action": (self.action_dim,),
+        }
+        self._buffer = {
+            key: np.zeros((self.nb_rollouts, self.max_episode_steps, *dim), dtype=np.float32)
+            for key, dim in self.input_shape.items()
+        }
         self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)

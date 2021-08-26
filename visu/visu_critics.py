@@ -33,9 +33,7 @@ def plot_critic(simu, model, study, default_string, num):
 
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
-def plot_2d_critic(
-    model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
-) -> None:
+def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Plot a value function in a 2-dimensional state space
     :param model: the policy and critic to be plotted
@@ -71,9 +69,7 @@ def plot_2d_critic(
     final_show(save_figure, plot, figname, x_label, y_label, "V Function", foldername)
 
 
-def plot_nd_critic(
-    model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
-) -> None:
+def plot_nd_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Visualization of the critic in a N-dimensional state space
     The N-dimensional state space is projected into its first two dimensions.
@@ -113,9 +109,7 @@ def plot_nd_critic(
 
 
 # visualization of the Q function for a 1D environment like 1D Toy with continuous actions
-def plot_qfunction_1d(
-    model, env, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True
-) -> None:
+def plot_qfunction_1d(model, env, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True) -> None:
     """
     Plot a q function in a 1-dimensional state space. The second dimension covers the whole action space
     :param model: the policy and critic to be plotted

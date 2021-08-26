@@ -27,8 +27,6 @@ def test_reinforce(gradient_name):
         gradient_name=gradient_name,
         seed=1,
         verbose=1,
-        # TODO(olivier): re-add automatic max episode steps detection
-        max_episode_steps=500,
         # nb_rollouts=nb_rollouts,
         **kwargs,
     )

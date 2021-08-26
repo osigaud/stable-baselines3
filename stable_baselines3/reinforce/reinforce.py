@@ -214,8 +214,15 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(obs=self._last_obs, action=actions, value=values, reward=rewards,
-                               episode_start=self._last_episode_starts, done=dones, infos=infos)
+            rollout_buffer.add(
+                obs=self._last_obs,
+                action=actions,
+                value=values,
+                reward=rewards,
+                episode_start=self._last_episode_starts,
+                done=dones,
+                infos=infos,
+            )
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -276,12 +283,9 @@ class REINFORCE(BaseAlgorithm):
 
         rollout_data = self.rollout_buffer.get_samples()
 
-        target_values = rollout_data.returns
-        obs = rollout_data.observations
+        values = self.critic(rollout_data.observations).flatten()
 
-        values = self.critic(obs).flatten()
-
-        value_loss = func.mse_loss(target_values, values)
+        value_loss = func.mse_loss(rollout_data.target_values, values)
 
         # Optimization step
         self.critic.optimizer.zero_grad()
@@ -295,9 +299,9 @@ class REINFORCE(BaseAlgorithm):
         Update of the actor from the samples collected in collect_rollout, after post_processing them
         """
         rollout_data = self.rollout_buffer.get_samples()
-        advantages = rollout_data.advantages
+        policy_returns = rollout_data.policy_returns
         # print("size", self.rollout_buffer.size())
-        # print("reinf 294 : size, advs", advantages.shape, advantages)
+        # print("reinf 294 : size, advs", policy_returns.shape, policy_returns)
         # print("sizes", self.rollout_buffer.episode_lengths)
 
         obs = rollout_data.observations
@@ -311,8 +315,8 @@ class REINFORCE(BaseAlgorithm):
 
         # Policy gradient loss
         if self.use_baseline:
-            advantages -= values
-        policy_loss = -(advantages * log_prob).mean()
+            policy_returns -= values
+        policy_loss = -(policy_returns * log_prob).mean()
 
         # Optimization step
         self.actor.optimizer.zero_grad()
