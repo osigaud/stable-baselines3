@@ -14,7 +14,7 @@ def visu_cartpole_replay_data(list_states, list_targets) -> None:
     :return: nothing
     """
     portrait = np.zeros((len(list_states), len(list_states)))
-    dot = list_states[:, (0,2)]
+    dot = list_states[:, (0,2)].cpu().numpy()
     print(dot)
     for index in range(len(dot)):
         portrait[dot[index][0], dot[index][1]] = list_targets[index]
