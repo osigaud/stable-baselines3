@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def visu_cartpole_replay_data(list_states, list_targets) -> None:
     """
     visualize, for a list of states plotted for their first dimension,
@@ -13,13 +14,15 @@ def visu_cartpole_replay_data(list_states, list_targets) -> None:
     :param list_targets: a list of target values, usually computed from a batch
     :return: nothing
     """
-    portrait = np.zeros((len(list_states), len(list_states)))
-    dot = list_states[:, (0,2)]
-    print(dot)
-    for index in range(len(dot)):
-        portrait[dot[index][0], dot[index][1]] = list_targets[index]
+    states = list_states[:, (0, 2)].cpu().numpy()
+    values = list_targets.cpu().numpy()
+
     plt.figure(figsize=(10, 4))
     plt.title("Target Landscape")
+
+    scatter_plot = plt.scatter(states[:, 0], states[:, 1], c=values, s=35)
+    plt.colorbar(scatter_plot)
+
     plt.xlabel("pos")
     plt.ylabel("angle")
     plt.savefig("./data/plots/target_landscape.pdf")
