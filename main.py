@@ -46,7 +46,6 @@ def init_test_reinforce():
         "MlpPolicy",
         args.env_name,
         gradient_name="gae",
-        optimizer_name="sgd",
         seed=1,
         verbose=1,
     )
