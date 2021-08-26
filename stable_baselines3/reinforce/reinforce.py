@@ -279,12 +279,15 @@ class REINFORCE(BaseAlgorithm):
             self.rollout_buffer.get_target_values_td()
         elif self.critic_estim_method == "n steps":
             self.rollout_buffer.get_target_values_nsteps()
+        elif self.critic_estim_method == "gae":
+            # TD(lambda) return are computed when computing GAE(lambda)
+            self.rollout_buffer.process_gae()
         else:
             raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
 
         # Make the value function converge
         # TODO: use minibatches?
-        n_critic_epochs = 30
+        n_critic_epochs = 10
         for _ in range(n_critic_epochs):
             rollout_data = self.rollout_buffer.get_samples()
 
@@ -326,7 +329,7 @@ class REINFORCE(BaseAlgorithm):
         # print("reinf 294 : size, values", values.shape, values)
         # print("sizes", self.rollout_buffer.episode_lengths)
 
-        if self.use_baseline:
+        if self.use_baseline and self.gradient_name != "gae":
             policy_returns -= values
         policy_loss = -(policy_returns * log_prob).mean()
 
@@ -344,8 +347,17 @@ class REINFORCE(BaseAlgorithm):
         # Update learning rate according to lr schedule
         self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 
-        if self.use_baseline:
+        if self.use_baseline or self.gradient_name == "gae":
             self.update_critic()
+
+        # if self.gradient_name == "gae":
+        #     # Recompute values
+        #     for ep in range(self.rollout_buffer.nb_rollouts):
+        #         with th.no_grad():
+        #             ep_length = self.rollout_buffer.episode_lengths[ep]
+        #             observations = self.rollout_buffer._buffer["observation"][ep, :ep_length]
+        #             new_values = self.critic(self.rollout_buffer.to_torch(observations)).cpu().numpy().flatten()
+        #             self.rollout_buffer.values[ep, :ep_length] = new_values
 
         # Compute policy returns
         self.post_processing()
