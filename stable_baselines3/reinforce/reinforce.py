@@ -315,7 +315,7 @@ class REINFORCE(BaseAlgorithm):
         elif self.gradient_name == "normalized discounted":
             self.rollout_buffer.get_normalized_discounted_rewards()
         elif self.gradient_name == "n step":
-            self.rollout_buffer.get_n_step_return()
+            self.rollout_buffer.get_target_values_nsteps()
         elif self.gradient_name == "gae":
             self.rollout_buffer.process_gae()
         else:

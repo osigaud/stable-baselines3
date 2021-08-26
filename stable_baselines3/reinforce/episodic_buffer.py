@@ -229,24 +229,6 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep] = self.rewards[ep] - self.values[ep]
 
-    def get_n_step_return(self) -> None:
-        """
-        Apply Bellman backup n-step return to all rewards of all samples of all episodes
-        :return: nothing
-        """
-        for ep in range(self.nb_rollouts):
-            for i in range(self.episode_lengths[ep]):
-                horizon = i + self.n_steps
-                summ = self.rewards[ep, i]
-                if horizon < self.episode_lengths[ep]:
-                    bootstrap_val = self.values[ep, horizon]
-                    summ += self.gamma ** self.n_steps * bootstrap_val
-                for j in range(1, self.n_steps):
-                    if i + j >= self.episode_lengths[ep]:
-                        break
-                    summ += self.gamma ** j * self.rewards[ep, i + j]
-                self.policy_returns[ep, i] = summ
-
     def get_exponentiated_rewards(self, beta) -> None:
         """
         Apply an exponentiation factor to the rewards of all samples of all episodes
@@ -272,6 +254,45 @@ class EpisodicBuffer(BaseBuffer):
         self.get_discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
             self.target_values[ep] = self.policy_returns[ep]
+
+    def get_target_values_nsteps(self) -> None:
+        """ """
+        for ep in range(self.nb_rollouts):
+            for step in reversed(range(self.episode_lengths[ep])):
+                if step == self.episode_lengths[ep] - 1:
+                    # Episodic setting: last step is always terminal
+                    # and we are not handling timeout separately yet
+                    target = self.rewards[ep, step]
+                else:
+                    horizon = step + self.n_steps
+                    summ = self.rewards[ep, step]
+                    if horizon < self.episode_lengths[ep]:
+                        bootstrap_val = self.values[ep, horizon]
+                        summ += self.gamma ** self.n_steps * bootstrap_val
+                    for j in range(1, self.n_steps):
+                        if step + j >= self.episode_lengths[ep]:
+                            break
+                        summ += self.gamma ** j * self.rewards[ep, step + j]
+                self.target_values[ep, step] = summ
+
+    def get_n_step_return(self) -> None:
+        """
+        Apply Bellman backup n-step return to all rewards of all samples of all episodes
+        Though this seems to work in practice, not sure it makes much sense
+        :return: nothing
+        """
+        for ep in range(self.nb_rollouts):
+            for i in range(self.episode_lengths[ep]):
+                horizon = i + self.n_steps
+                summ = self.rewards[ep, i]
+                if horizon < self.episode_lengths[ep]:
+                    bootstrap_val = self.values[ep, horizon]
+                    summ += self.gamma ** self.n_steps * bootstrap_val
+                for j in range(1, self.n_steps):
+                    if i + j >= self.episode_lengths[ep]:
+                        break
+                    summ += self.gamma ** j * self.rewards[ep, i + j]
+                self.policy_returns[ep, i] = summ
 
     def process_gae(self) -> None:
         """
