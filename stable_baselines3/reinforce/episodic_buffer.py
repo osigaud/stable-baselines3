@@ -82,10 +82,7 @@ class EpisodicBuffer(BaseBuffer):
 
         assert self.n_envs == 1, "Episodic buffer only supports single env for now"
 
-        self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
-        self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.log_probs = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.episode_starts = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.dones = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
@@ -106,7 +103,6 @@ class EpisodicBuffer(BaseBuffer):
         action: np.ndarray,
         value: np.ndarray,
         reward: np.ndarray,
-        log_prob: np.ndarray,
         episode_start: np.ndarray,
         done: np.ndarray,
         infos: List[Dict[str, Any]],
@@ -116,7 +112,6 @@ class EpisodicBuffer(BaseBuffer):
         self._buffer["action"][self.episode_idx][self.current_idx] = action
         self.values[self.episode_idx][self.current_idx] = value
         self.rewards[self.episode_idx][self.current_idx] = reward
-        self.log_probs[self.episode_idx][self.current_idx] = log_prob
         self.episode_starts[self.episode_idx][self.current_idx] = episode_start
         self.dones[self.episode_idx][self.current_idx] = done
         # update current pointer
@@ -138,7 +133,6 @@ class EpisodicBuffer(BaseBuffer):
             self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
             self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
             self.to_torch(self.values[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.log_probs[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
             self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
         )
@@ -177,6 +171,9 @@ class EpisodicBuffer(BaseBuffer):
         """
         Reset the buffer.
         """
+        self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
+        self.rewards = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.episode_idx = 0
         self.current_idx = 0
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)

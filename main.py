@@ -37,13 +37,13 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
 def plot_crit(model, env, env_name, gradient_name, final_string="post"):
     critname = env_name + "_critic_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":
-        plot_pendulum_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+        plot_pendulum_critic(model.policy, env, figname=critname, plot=False)
     elif env_name == "CartPole-v1" or env_name == "CartPoleContinuous-v0":
-        plot_cartpole_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+        plot_cartpole_critic(model.policy, env, figname=critname, plot=False)
     elif env.observation_space.shape[0] == 2:
-        plot_2d_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+        plot_2d_critic(model.policy, env, figname=critname, plot=False)
     else:
-        plot_nd_critic(model.policy, env, deterministic=True, figname=critname, plot=False)
+        plot_nd_critic(model.policy, env, figname=critname, plot=False)
 
 
 def init_test_reinforce():
@@ -70,17 +70,15 @@ def test_reinforce() -> None:
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
-    args.env_name = "CartPole-v1"
+    # args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount"]
     args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
     use_baseline = True
     args.nb_rollouts = 50
-    args.critic_estim_method = "td"
+    args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
-    # eval_env = gym.make(args.env_name)
-    # env_wrapped = Monitor(eval_env, log_dir)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
     max_episode_steps = get_time_limit(env_vec, None)
     grads = args.gradients
@@ -94,7 +92,7 @@ def test_reinforce() -> None:
             best_model_save_path=log_dir + "bests/",
             log_path=log_dir,
             eval_freq=500,
-            n_eval_episodes=50,
+            n_eval_episodes=5,
             deterministic=True,
             render=False,
         )
@@ -108,7 +106,7 @@ def test_reinforce() -> None:
             gamma=args.gamma,
             learning_rate=args.lr_actor,
             n_steps=args.n_steps,
-            # seed=1,
+            # seed=1, #removed to get different rollouts each time
             verbose=1,
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,

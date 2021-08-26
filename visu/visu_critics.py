@@ -34,7 +34,7 @@ def plot_critic(simu, model, study, default_string, num):
 
 # visualization of the V function for a 2D environment like continuous mountain car. The action does not matter.
 def plot_2d_critic(
-    model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
+    model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
 ) -> None:
     """
     Plot a value function in a 2-dimensional state space
@@ -72,7 +72,7 @@ def plot_2d_critic(
 
 
 def plot_nd_critic(
-    model, env, deterministic, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
+    model, env, plot=True, figname="vfunction.pdf", foldername="/plots/", save_figure=True
 ) -> None:
     """
     Visualization of the critic in a N-dimensional state space
@@ -114,7 +114,7 @@ def plot_nd_critic(
 
 # visualization of the Q function for a 1D environment like 1D Toy with continuous actions
 def plot_qfunction_1d(
-    model, env, deterministic, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True
+    model, env, plot=True, figname="qfunction_1D.pdf", foldername="/plots/", save_figure=True
 ) -> None:
     """
     Plot a q function in a 1-dimensional state space. The second dimension covers the whole action space
@@ -153,7 +153,7 @@ def plot_qfunction_1d(
 
 
 def plot_qfunction_cont_act(
-    model, env, deterministic, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True
+    model, env, plot=True, figname="qfunction_cont.pdf", foldername="/plots/", save_figure=True
 ) -> None:
     """
     Visualization of the Q function for a 2D environment like continuous mountain car.
@@ -191,12 +191,11 @@ def plot_qfunction_cont_act(
     final_show(save_figure, plot, figname, x_label, y_label, "Q Function or current policy", foldername)
 
 
-def plot_pendulum_critic(model, env, deterministic, plot=True, figname="pendulum_critic.pdf", save_figure=True) -> None:
+def plot_pendulum_critic(model, env, plot=True, figname="pendulum_critic.pdf", save_figure=True) -> None:
     """
     Plot a critic for the Pendulum environment
     :param model: the policy and critic specifying the action to be plotted
     :param env: the evaluation environment
-    :param deterministic: whether the deterministic version of the policy should be plotted
     :param plot: whether the plot should be interactive
     :param figname: the name of the file to save the figure
     :param save_figure: whether the figure should be saved
@@ -227,7 +226,6 @@ def plot_pendulum_critic(model, env, deterministic, plot=True, figname="pendulum
 def plot_cartpole_critic(
     model,
     env,
-    deterministic,
     plot=True,
     figname="cartpole_critic.pdf",
     foldername="/plots/",
@@ -247,7 +245,7 @@ def plot_cartpole_critic(
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 50
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high

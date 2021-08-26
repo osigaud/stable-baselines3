@@ -200,7 +200,7 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="cartpol
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 50
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high

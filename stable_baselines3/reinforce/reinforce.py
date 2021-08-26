@@ -37,8 +37,6 @@ class REINFORCE(BaseAlgorithm):
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
-    :param rms_prop_eps: RMSProp epsilon. It stabilizes square root computation in denominator
-        of RMSProp update
     :param normalize_advantage: Whether to normalize or not the advantage
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -73,11 +71,8 @@ class REINFORCE(BaseAlgorithm):
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
-        optimizer_name: str = "adam",
-        rms_prop_eps: float = 1e-5,
         normalize_advantage: bool = False,
         use_baseline: bool = False,
-        uses_entropy: bool = False,
         critic_estim_method: str = "mc",
     ):
         super(REINFORCE, self).__init__(
@@ -108,7 +103,6 @@ class REINFORCE(BaseAlgorithm):
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.normalize_advantage = normalize_advantage
-        self.clip_grad = False
         self.use_baseline = use_baseline
         self.episode_num = 0
         self.rollout_buffer = None
@@ -215,7 +209,8 @@ class REINFORCE(BaseAlgorithm):
                 actions = actions.reshape(-1, 1)
 
             old_episode_idx = rollout_buffer.n_episodes_stored
-            rollout_buffer.add(self._last_obs, actions, values, rewards, log_probs, self._last_episode_starts, dones, infos)
+            rollout_buffer.add(obs=self._last_obs, action=actions, value=values, reward=rewards,
+                               episode_start=self._last_episode_starts, done=dones, infos=infos)
             new_episode_idx = rollout_buffer.n_episodes_stored
             if new_episode_idx > old_episode_idx:
                 self.episode_num += 1
@@ -224,39 +219,6 @@ class REINFORCE(BaseAlgorithm):
 
         callback.on_rollout_end()
         return True
-
-    def update_critic(self):
-        """
-        The method assumes a rollout has already been collected, the rollout buffer is ready
-        """
-        if self.critic_estim_method == "mc":
-            self.rollout_buffer.get_target_values_mc()
-        elif self.critic_estim_method == "td":
-            self.rollout_buffer.get_target_values_td()
-        elif self.critic_estim_method == "n steps":
-            self.rollout_buffer.get_target_values_nsteps()
-        else:
-            raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
-
-        rollout_data = self.rollout_buffer.get_samples()
-
-        target_values = rollout_data.returns
-        obs = rollout_data.observations
-
-        values = self.critic(obs).flatten()
-
-        value_loss = func.mse_loss(target_values, values)
-
-        # Optimization step
-        self.critic.optimizer.zero_grad()
-        value_loss.backward()
-
-        if self.clip_grad:
-            # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
-
-        self.critic.optimizer.step()
-        self.logger.record("train/value_loss", value_loss.item())
 
     def regress_policy(self):
         """ """
@@ -294,10 +256,44 @@ class REINFORCE(BaseAlgorithm):
         else:
             raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
 
+    def update_critic(self):
+        """
+        The method assumes a rollout has already been collected, the rollout buffer is ready
+        """
+        if self.critic_estim_method == "mc":
+            self.rollout_buffer.get_target_values_mc()
+        elif self.critic_estim_method == "td":
+            self.rollout_buffer.get_target_values_td()
+        elif self.critic_estim_method == "n steps":
+            self.rollout_buffer.get_target_values_nsteps()
+        else:
+            raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
+
+        rollout_data = self.rollout_buffer.get_samples()
+
+        target_values = rollout_data.returns
+        obs = rollout_data.observations
+
+        values = self.critic(obs).flatten()
+
+        value_loss = func.mse_loss(target_values, values)
+
+        # Optimization step
+        self.critic.optimizer.zero_grad()
+        value_loss.backward()
+
+        self.critic.optimizer.step()
+        self.logger.record("train/value_loss", value_loss.item())
+
     def update_actor(self):
+        """
+        Update of the actor from the samples collected in collect_rollout, after post_processing them
+        """
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
-        # old_log_prob = rollout_data.old_log_prob
+        # print("size", self.rollout_buffer.size())
+        # print("reinf 294 : size, advs", advantages.shape, advantages)
+        # print("sizes", self.rollout_buffer.episode_lengths)
 
         obs = rollout_data.observations
         values = self.critic(obs).flatten()
@@ -316,10 +312,6 @@ class REINFORCE(BaseAlgorithm):
         # Optimization step
         self.actor.optimizer.zero_grad()
         policy_loss.backward()
-
-        if self.clip_grad:
-            # Clip grad norm
-            th.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actor.optimizer.step()
         self.logger.record("train/policy_loss", policy_loss.item())
 
@@ -346,7 +338,7 @@ class REINFORCE(BaseAlgorithm):
 
     def learn_one_epoch(
         self,
-        total_timesteps: int,
+        total_steps: int,
         callback: MaybeCallback = None,
         expert_pol: bool = False,
     ) -> None:
@@ -354,7 +346,7 @@ class REINFORCE(BaseAlgorithm):
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
         assert collect_ok, "Collect rollout stopped unexpectedly"
 
-        self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
+        self._update_current_progress_remaining(self.num_timesteps, total_steps)
         # Display training infos
         fps = int(self.num_timesteps / (time.time() - self.start_time))
 
