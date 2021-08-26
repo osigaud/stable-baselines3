@@ -1,8 +1,7 @@
 import numpy as np
 
 
-class PostProcessor():
-
+class PostProcessor:
     def __init__(
         self,
         gae_lambda: float = 1,
@@ -14,4 +13,3 @@ class PostProcessor():
         self.n_steps = n_steps
         self.gamma = gamma
         self.beta = beta
-

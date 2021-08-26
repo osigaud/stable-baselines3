@@ -424,8 +424,9 @@ class REINFORCE(BaseAlgorithm):
         expert_pol: bool = False,
     ) -> "BaseAlgorithm":
 
-        assert total_timesteps is not None or nb_epochs is not None, \
-            "You must specify either a total number of time steps or a number of epochs"
+        assert (
+            total_timesteps is not None or nb_epochs is not None
+        ), "You must specify either a total number of time steps or a number of epochs"
         if total_timesteps is None:
             total_steps = nb_rollouts * self.max_episode_steps
         else:
