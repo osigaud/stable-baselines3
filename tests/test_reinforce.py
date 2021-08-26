@@ -31,3 +31,28 @@ def test_reinforce(gradient_name):
         **kwargs,
     )
     model.learn(50, log_interval=100)
+
+
+@pytest.mark.parametrize(
+    "critic_estim_method",
+    [
+        "mc",
+        "td",
+        "n steps",
+    ],
+)
+@pytest.mark.parametrize("use_baseline", [False, True])
+def test_critic(critic_estim_method, use_baseline):
+    # Make numpy throw exceptions
+    np.seterr(all="raise")
+    model = REINFORCE(
+        "MlpPolicy",
+        "CartPole-v1",
+        gradient_name="sum",
+        seed=1,
+        verbose=1,
+        critic_estim_method=critic_estim_method,
+        use_baseline=use_baseline,
+        # **kwargs,
+    )
+    model.learn(50, log_interval=100)
