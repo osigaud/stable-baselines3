@@ -108,6 +108,7 @@ class REINFORCE(BaseAlgorithm):
         self.use_baseline = use_baseline
         self.episode_num = 0
         self.rollout_buffer = None
+        self.log_interval = 10
         self.critic_estim_method = critic_estim_method
 
         # Retrieve max episode step automatically
@@ -368,7 +369,8 @@ class REINFORCE(BaseAlgorithm):
         self.logger.record("time/fps", fps)
         self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-        self.logger.dump(step=self.num_timesteps)
+        if self.logger.name_to_value["time/iterations"] % self.log_interval == 0:
+            self.logger.dump(step=self.num_timesteps)
         self.train()
 
     def collect_expert_rollout(
@@ -420,6 +422,7 @@ class REINFORCE(BaseAlgorithm):
         )
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
+        self.log_interval = log_interval
 
         if total_timesteps is None:
             for i in range(nb_epochs):
