@@ -123,14 +123,12 @@ def test_reinforce() -> None:
             plot_pol(model, env, args.env_name, grads[i], final_string="pre")
             plot_crit(model, env, args.env_name, grads[i], final_string="pre")
 
-        for rep in range(args.nb_repet):
-            model.learn(
-                nb_epochs=10,
-                nb_rollouts=args.nb_rollouts,
-                reset_num_timesteps=rep == 0,
-                callback=eval_callback,
-                log_interval=args.log_interval,
-            )
+        model.learn(
+            nb_epochs=10 * args.nb_repet,
+            nb_rollouts=args.nb_rollouts,
+            callback=eval_callback,
+            log_interval=args.log_interval,
+        )
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
@@ -205,14 +203,12 @@ def test_imitation_cmc() -> None:
         plot_trajectory(rollout_data, env, 1)
         plot_pol(model, env, args.env_name, grads[i], final_string="imit")
         args.nb_rollouts = 20
-        for rep in range(args.nb_repet):
-            model.learn(
-                nb_epochs=20,
-                nb_rollouts=args.nb_rollouts,
-                reset_num_timesteps=rep == 0,
-                callback=eval_callback,
-                log_interval=args.log_interval,
-            )
+        model.learn(
+            nb_epochs=20 * args.nb_repet,
+            nb_rollouts=args.nb_rollouts,
+            callback=eval_callback,
+            log_interval=args.log_interval,
+        )
 
         if plot_policies:
             plot_pol(model, env, args.env_name, grads[i], final_string="post")
