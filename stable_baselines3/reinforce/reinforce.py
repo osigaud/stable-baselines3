@@ -6,12 +6,11 @@ import numpy as np
 import torch as th
 from gym import spaces
 from torch.nn import functional as func
-from visu.visu_gradient import visu_cartpole_replay_data
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import obs_as_tensor, safe_mean
+from stable_baselines3.common.utils import explained_variance, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
@@ -283,19 +282,26 @@ class REINFORCE(BaseAlgorithm):
         else:
             raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
 
-        rollout_data = self.rollout_buffer.get_samples()
+        # Make the value function converge
+        # TODO: use minibatches?
+        n_critic_epochs = 30
+        for _ in range(n_critic_epochs):
+            rollout_data = self.rollout_buffer.get_samples()
 
-        values = self.critic(rollout_data.observations).flatten()
-        visu_cartpole_replay_data(rollout_data.observations, rollout_data.target_values)
+            values = self.critic(rollout_data.observations).flatten()
 
-        value_loss = func.mse_loss(rollout_data.target_values, values)
+            value_loss = func.mse_loss(rollout_data.target_values, values)
 
-        # Optimization step
-        self.critic.optimizer.zero_grad()
-        value_loss.backward()
+            # Optimization step
+            self.critic.optimizer.zero_grad()
+            value_loss.backward()
 
-        self.critic.optimizer.step()
+            self.critic.optimizer.step()
+
+        explained_var = explained_variance(values.detach().cpu().numpy(), rollout_data.target_values.detach().cpu().numpy())
+
         self.logger.record("train/value_loss", value_loss.item())
+        self.logger.record("train/explained_variance", explained_var)
 
     def update_actor(self):
         """
@@ -304,7 +310,9 @@ class REINFORCE(BaseAlgorithm):
         rollout_data = self.rollout_buffer.get_samples()
         policy_returns = rollout_data.policy_returns
 
-        values = self.critic(rollout_data.observations).flatten()
+        with th.no_grad():
+            values = self.critic(rollout_data.observations).flatten()
+
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
