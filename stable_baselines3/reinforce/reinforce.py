@@ -365,7 +365,7 @@ class REINFORCE(BaseAlgorithm):
 
     def learn_one_epoch(
         self,
-        total_time_steps: int,
+        total_timesteps: int,
         callback: MaybeCallback = None,
         expert_pol: bool = False,
     ) -> None:
@@ -374,7 +374,7 @@ class REINFORCE(BaseAlgorithm):
         assert collect_ok, "Collect rollout stopped unexpectedly"
 
         self.post_processing()
-        self._update_current_progress_remaining(self.num_timesteps, total_time_steps)
+        self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
         # Display training infos
         fps = int(self.num_timesteps / (time.time() - self.start_time))
 
@@ -383,7 +383,7 @@ class REINFORCE(BaseAlgorithm):
             self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
         self.logger.record("time/fps", fps)
         self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
-        self.logger.record("time/total_time_steps", self.num_timesteps, exclude="tensorboard")
+        self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
         self.train()
 
@@ -410,8 +410,8 @@ class REINFORCE(BaseAlgorithm):
 
     def learn(
         self,
-        total_time_steps: int = None,
-        nb_epochs: int = None,
+        total_timesteps: Optional[int] = None,
+        nb_epochs: Optional[int] = None,
         nb_rollouts: int = 1,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -424,25 +424,25 @@ class REINFORCE(BaseAlgorithm):
         expert_pol: bool = False,
     ) -> "BaseAlgorithm":
 
-        assert total_time_steps is not None or nb_epochs is not None, \
+        assert total_timesteps is not None or nb_epochs is not None, \
             "You must specify either a total number of time steps or a number of epochs"
-        if total_time_steps is None:
+        if total_timesteps is None:
             total_steps = nb_rollouts * self.max_episode_steps
         else:
-            total_steps = total_time_steps
+            total_steps = total_timesteps
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
 
-        if total_time_steps is None:
+        if total_timesteps is None:
             for i in range(nb_epochs):
                 self.logger.record("time/iterations", i, exclude="tensorboard")
                 self.learn_one_epoch(total_steps, callback)
         else:
             i = 0
-            while self.num_timesteps < total_time_steps:
+            while self.num_timesteps < total_timesteps:
                 i += 1
                 self.logger.record("time/iterations", i, exclude="tensorboard")
                 self.learn_one_epoch(total_steps, callback)
