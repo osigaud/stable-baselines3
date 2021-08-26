@@ -19,6 +19,7 @@ def visu_cartpole_replay_data(list_states, list_targets) -> None:
     targets = list_targets.cpu().numpy()
     print(targets)
     for index in range(len(dot)):
+        print(dot[index, 0], targets[index])
         portrait[dot[index, 0], dot[index, 1]] = targets[index]
     plt.figure(figsize=(10, 4))
     plt.title("Target Landscape")
