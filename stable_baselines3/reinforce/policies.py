@@ -33,6 +33,7 @@ class Actor(BasePolicy):
     :param features_extractor: Network to extract features
         (a CNN when using images, a nn.Flatten() layer otherwise)
     :param features_dim: Number of features
+    :param log_std_init: Initial value for the log standard deviation
     :param activation_fn: Activation function
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
@@ -258,6 +259,7 @@ class REINFORCEPolicy(BasePolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
+    :param log_std_init: Initial value for the log standard deviation
     """
 
     def __init__(
@@ -272,7 +274,7 @@ class REINFORCEPolicy(BasePolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
-        share_features_extractor: bool = True,
+        share_features_extractor: bool = False,
         log_std_init: float = 0.0,
     ):
         super().__init__(
@@ -282,7 +284,7 @@ class REINFORCEPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
-            squash_output=True,
+            squash_output=False,
         )
 
         # Default network architecture, from the original paper
