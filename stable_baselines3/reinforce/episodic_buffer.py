@@ -262,7 +262,7 @@ class EpisodicBuffer(BaseBuffer):
                 if step == self.episode_lengths[ep] - 1:
                     # Episodic setting: last step is always terminal
                     # and we are not handling timeout separately yet
-                    target = self.rewards[ep, step]
+                    summ = self.rewards[ep, step]
                 else:
                     horizon = step + self.n_steps
                     summ = self.rewards[ep, step]
