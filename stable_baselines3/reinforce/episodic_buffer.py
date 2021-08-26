@@ -80,7 +80,7 @@ class EpisodicBuffer(BaseBuffer):
         # episode length storage, needed for episodes which has less steps than the maximum length
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)
 
-        assert self.n_envs == 1, "Episode buffer only supports single env for now"
+        assert self.n_envs == 1, "Episodic buffer only supports single env for now"
 
         self.policy_returns = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
         self.target_values = np.zeros((self.nb_rollouts, self.max_episode_steps), dtype=np.float32)
