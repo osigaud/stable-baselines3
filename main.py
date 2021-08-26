@@ -20,9 +20,6 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.manual_seed(0)
-np.random.seed(0)
-random.seed(0)
 
 
 def plot_pol(model, env, env_name, gradient_name, final_string="post"):
@@ -66,20 +63,20 @@ def init_test_reinforce():
 
 
 def test_reinforce() -> None:
-    plot_policies = False
+    plot_policies = True
     args = get_args()
     chrono = Chrono()
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
     # args.env_name = "Pendulum-v0"
-    # args.env_name = "CartPole-v1"
+    args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount"]
-    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted", "n step", "gae"]
-    use_baseline = False
+    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
+    use_baseline = True
     args.nb_rollouts = 50
-    args.critic_estim_method = "mc"
+    args.critic_estim_method = "td"
     # Create and wrap the environment
     env = gym.make(args.env_name)
     # eval_env = gym.make(args.env_name)
@@ -101,7 +98,7 @@ def test_reinforce() -> None:
             deterministic=True,
             render=False,
         )
-        policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]))
+        policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]), optimizer_kwargs=dict(eps=1e-5))
 
         model = REINFORCE(
             "MlpPolicy",
@@ -111,11 +108,11 @@ def test_reinforce() -> None:
             gamma=args.gamma,
             learning_rate=args.lr_actor,
             n_steps=args.n_steps,
-            seed=1,
+            # seed=1,
             verbose=1,
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
-            substract_baseline=use_baseline,
+            use_baseline=use_baseline,
             max_episode_steps=max_episode_steps,
             critic_estim_method=args.critic_estim_method,
         )
@@ -124,6 +121,7 @@ def test_reinforce() -> None:
             plot_crit(model, env, args.env_name, grads[i], final_string="pre")
 
         model.learn(
+            total_timesteps=50000,
             nb_epochs=10 * args.nb_repet,
             nb_rollouts=args.nb_rollouts,
             callback=eval_callback,
@@ -182,7 +180,7 @@ def test_imitation_cmc() -> None:
             verbose=1,
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
-            substract_baseline=use_baseline,
+            use_baseline=use_baseline,
             max_episode_steps=max_episode_steps,
             critic_estim_method=args.critic_estim_method,
         )

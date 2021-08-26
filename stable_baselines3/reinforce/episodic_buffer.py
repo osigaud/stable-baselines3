@@ -238,7 +238,9 @@ class EpisodicBuffer(BaseBuffer):
             self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
 
     def get_target_values_mc(self) -> None:
-        """ """
+        """
+        Warning: is only OK for V values
+        """
         self.get_discounted_sum_rewards()
         for ep in range(self.nb_rollouts):
             self.target_values[ep] = self.policy_returns[ep]
@@ -256,7 +258,9 @@ class EpisodicBuffer(BaseBuffer):
                 self.target_values[ep, step] = target
 
     def get_target_values_nsteps(self) -> None:
-        """ """
+        """
+        Warning, assumes that values[ep] correspond to V-values
+        """
         for ep in range(self.nb_rollouts):
             for step in reversed(range(self.episode_lengths[ep])):
                 if step == self.episode_lengths[ep] - 1:

@@ -76,7 +76,7 @@ class REINFORCE(BaseAlgorithm):
         optimizer_name: str = "adam",
         rms_prop_eps: float = 1e-5,
         normalize_advantage: bool = False,
-        substract_baseline: bool = False,
+        use_baseline: bool = False,
         uses_entropy: bool = False,
         critic_estim_method: str = "mc",
     ):
@@ -109,8 +109,7 @@ class REINFORCE(BaseAlgorithm):
         self.max_grad_norm = max_grad_norm
         self.normalize_advantage = normalize_advantage
         self.clip_grad = False
-        self.substract_baseline = substract_baseline
-        self.uses_entropy = uses_entropy
+        self.use_baseline = use_baseline
         self.episode_num = 0
         self.rollout_buffer = None
         self.critic_estim_method = critic_estim_method
@@ -239,47 +238,25 @@ class REINFORCE(BaseAlgorithm):
         else:
             raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
 
-        # Get all data in one go
         rollout_data = self.rollout_buffer.get_samples()
 
-        # log_prob = rollout_data.old_log_prob
-        # old_values = rollout_data.old_values
         target_values = rollout_data.returns
-
         obs = rollout_data.observations
-        actions = rollout_data.actions
-        if isinstance(self.action_space, spaces.Discrete):
-            # Convert discrete action from float to long
-            actions = actions.long().flatten()
 
-        log_prob, entropy = self.actor.evaluate_actions(obs, actions)
         values = self.critic(obs).flatten()
 
         value_loss = func.mse_loss(target_values, values)
 
-        # Note(antonin): entropy loss should be with the actor
-        # Entropy loss favors exploration
-        if self.uses_entropy:
-            if entropy is None:
-                # Approximate entropy when no analytical form
-                entropy_loss = -th.mean(-log_prob)
-            else:
-                entropy_loss = -th.mean(entropy)
-            self.logger.record("train/entropy_loss", entropy_loss.item())
-
-            total_loss = self.ent_coef * entropy_loss + self.vf_coef * value_loss
-        else:
-            total_loss = value_loss
-        self.logger.record("train/value_loss", value_loss.item())
-
         # Optimization step
         self.critic.optimizer.zero_grad()
-        total_loss.backward()
+        value_loss.backward()
 
         if self.clip_grad:
             # Clip grad norm
             th.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+
         self.critic.optimizer.step()
+        self.logger.record("train/value_loss", value_loss.item())
 
     def regress_policy(self):
         """ """
@@ -317,24 +294,13 @@ class REINFORCE(BaseAlgorithm):
         else:
             raise NotImplementedError(f"The gradient {self.gradient_name} is not implemented")
 
-    def train(self) -> None:
-        """
-        Update policy using the currently gathered
-        rollout buffer (one gradient step over whole data).
-        """
-        # Update learning rate according to lr schedule
-        self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
-
-        self.update_critic()
-
-        # Compute policy returns
-        self.post_processing()
-
+    def update_actor(self):
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
         # old_log_prob = rollout_data.old_log_prob
 
         obs = rollout_data.observations
+        values = self.critic(obs).flatten()
         actions = rollout_data.actions
         if isinstance(self.action_space, spaces.Discrete):
             # Convert discrete action from float to long
@@ -343,22 +309,38 @@ class REINFORCE(BaseAlgorithm):
         log_prob, _ = self.actor.evaluate_actions(obs, actions)
 
         # Policy gradient loss
+        if self.use_baseline:
+            advantages -= values
         policy_loss = -(advantages * log_prob).mean()
-        total_loss = policy_loss
-        # print("total loss", total_loss)
 
         # Optimization step
         self.actor.optimizer.zero_grad()
-        total_loss.backward()
+        policy_loss.backward()
 
         if self.clip_grad:
             # Clip grad norm
             th.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
         self.actor.optimizer.step()
+        self.logger.record("train/policy_loss", policy_loss.item())
+
+    def train(self) -> None:
+        """
+        Update policy using the currently gathered
+        rollout buffer (one gradient step over whole data).
+        """
+        # Update learning rate according to lr schedule
+        self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
+
+        if self.use_baseline:
+            self.update_critic()
+
+        # Compute policy returns
+        self.post_processing()
+
+        self.update_actor()
 
         self._n_updates += 1
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        self.logger.record("train/policy_loss", policy_loss.item())
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
