@@ -11,8 +11,8 @@ from stable_baselines3 import REINFORCE
         "sum",
         "discount",
         "normalized sum",
-        # "baseline",
-        # "n_step",
+        "normalized discounted",
+        "n step",
         "gae",
     ],
 )
@@ -32,4 +32,4 @@ def test_reinforce(gradient_name):
         # nb_rollouts=nb_rollouts,
         **kwargs,
     )
-    model.learn(nb_epochs=10, log_interval=2)
+    model.learn(1000, log_interval=2)
