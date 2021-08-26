@@ -78,7 +78,7 @@ class REINFORCE(BaseAlgorithm):
         normalize_advantage: bool = False,
         substract_baseline: bool = False,
         uses_entropy: bool = False,
-        critic_estim_method: str = "td",
+        critic_estim_method: str = "mc",
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -255,11 +255,7 @@ class REINFORCE(BaseAlgorithm):
         log_prob, entropy = self.actor.evaluate_actions(obs, actions)
         values = self.critic(obs).flatten()
 
-        # print("v", values)
-        # print("v1", values1)
-
         value_loss = func.mse_loss(target_values, values)
-        # print("value loss", value_loss)
 
         # Note(antonin): entropy loss should be with the actor
         # Entropy loss favors exploration
@@ -315,7 +311,7 @@ class REINFORCE(BaseAlgorithm):
         elif self.gradient_name == "normalized discounted":
             self.rollout_buffer.get_normalized_discounted_rewards()
         elif self.gradient_name == "n step":
-            self.rollout_buffer.get_target_values_nsteps()
+            self.rollout_buffer.get_n_step_return()
         elif self.gradient_name == "gae":
             self.rollout_buffer.process_gae()
         else:
@@ -330,6 +326,9 @@ class REINFORCE(BaseAlgorithm):
         self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 
         self.update_critic()
+
+        # Compute policy returns
+        self.post_processing()
 
         rollout_data = self.rollout_buffer.get_samples()
         advantages = rollout_data.advantages
@@ -373,7 +372,6 @@ class REINFORCE(BaseAlgorithm):
         collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
         assert collect_ok, "Collect rollout stopped unexpectedly"
 
-        self.post_processing()
         self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
         # Display training infos
         fps = int(self.num_timesteps / (time.time() - self.start_time))

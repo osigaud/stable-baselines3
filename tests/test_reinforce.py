@@ -32,4 +32,4 @@ def test_reinforce(gradient_name):
         # nb_rollouts=nb_rollouts,
         **kwargs,
     )
-    model.learn(1000, log_interval=2)
+    model.learn(50, log_interval=100)
