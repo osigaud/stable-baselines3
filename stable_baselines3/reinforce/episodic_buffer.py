@@ -237,6 +237,12 @@ class EpisodicBuffer(BaseBuffer):
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
 
+    def get_target_values_mc(self) -> None:
+        """ """
+        self.get_discounted_sum_rewards()
+        for ep in range(self.nb_rollouts):
+            self.target_values[ep] = self.policy_returns[ep]
+
     def get_target_values_td(self) -> None:
         """ """
         for ep in range(self.nb_rollouts):
@@ -248,12 +254,6 @@ class EpisodicBuffer(BaseBuffer):
                 else:
                     target = self.rewards[ep, step] + self.gamma * self.gae_lambda * self.values[ep, step + 1]
                 self.target_values[ep, step] = target
-
-    def get_target_values_mc(self) -> None:
-        """ """
-        self.get_discounted_sum_rewards()
-        for ep in range(self.nb_rollouts):
-            self.target_values[ep] = self.policy_returns[ep]
 
     def get_target_values_nsteps(self) -> None:
         """ """
