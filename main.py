@@ -1,9 +1,7 @@
 import os
-import random
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-import numpy as np
 import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
 from arguments import get_args
 from chrono import Chrono

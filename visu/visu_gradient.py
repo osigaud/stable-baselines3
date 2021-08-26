@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
-
-def visu_replay_data(list_states, list_targets) -> None:
+def visu_cartpole_replay_data(list_states, list_targets) -> None:
     """
     visualize, for a list of states plotted for their first dimension,
     the corresponding target value for the critic as computed either with
@@ -13,14 +13,16 @@ def visu_replay_data(list_states, list_targets) -> None:
     :param list_targets: a list of target values, usually computed from a batch
     :return: nothing
     """
-    bx1, bx2, bx3, bx4 = zip(*list_states)
-    print(bx1, bx2, bx3, bx4)
+    portrait = np.zeros((len(list_states), len(list_states)))
+    dot = list_states[:, (0,2)]
+    print(dot)
+    for index in range(len(dot)):
+        portrait[dot[index][0], dot[index][1]] = list_targets[index]
     plt.figure(figsize=(10, 4))
-    plt.scatter(bx1, list_targets, color="blue")
-    plt.title("Regression Analysis")
-    plt.xlabel("Feature")
-    plt.ylabel("Target values")
-    plt.savefig("./data/plots/data_regress.pdf")
+    plt.title("Target Landscape")
+    plt.xlabel("pos")
+    plt.ylabel("angle")
+    plt.savefig("./data/plots/target_landscape.pdf")
     plt.show()
 
 

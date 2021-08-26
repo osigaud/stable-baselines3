@@ -6,7 +6,7 @@ import numpy as np
 import torch as th
 from gym import spaces
 from torch.nn import functional as func
-from visu.visu_gradient import visu_replay_data
+from visu.visu_gradient import visu_cartpole_replay_data
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
@@ -285,7 +285,7 @@ class REINFORCE(BaseAlgorithm):
         rollout_data = self.rollout_buffer.get_samples()
 
         values = self.critic(rollout_data.observations).flatten()
-        visu_replay_data(rollout_data.observations, rollout_data.target_values)
+        visu_cartpole_replay_data(rollout_data.observations, rollout_data.target_values)
 
         value_loss = func.mse_loss(rollout_data.target_values, values)
 
