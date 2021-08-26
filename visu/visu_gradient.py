@@ -19,10 +19,17 @@ def visu_cartpole_replay_data(list_states, list_targets) -> None:
 
     plt.figure(figsize=(10, 4))
 
-
     scatter_plot = plt.scatter(states[:, 0], states[:, 1], c=values, s=35)
     plt.colorbar(scatter_plot)
-    final_show(save_figure=True, plot=False, figure_name="target_landscape", x_label="pos", y_label="angle", title="Target Landscape", directory="plots")
+    final_show(
+        save_figure=True,
+        plot=False,
+        figure_name="target_landscape",
+        x_label="pos",
+        y_label="angle",
+        title="Target Landscape",
+        directory="plots",
+    )
 
 
 def visu_loss_along_time(cpts, losses, loss_file_name) -> None:
