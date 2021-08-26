@@ -63,10 +63,11 @@ def test_reinforce() -> None:
     args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount"]
-    args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
+    # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
+    args.gradients = ["sum", "discount", "gae"]
     use_baseline = True
-    args.nb_rollouts = 50
-    args.critic_estim_method = "td"
+    args.nb_rollouts = 25
+    args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)

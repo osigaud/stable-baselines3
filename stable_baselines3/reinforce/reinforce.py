@@ -68,7 +68,7 @@ class REINFORCE(BaseAlgorithm):
         _init_setup_model: bool = True,
         n_steps: int = 5,
         gamma: float = 0.99,
-        gae_lambda: float = 1.0,
+        gae_lambda: float = 0.98,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
