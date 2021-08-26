@@ -12,6 +12,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 from stable_baselines3.reinforce.policies import REINFORCEPolicy
@@ -107,6 +108,10 @@ class REINFORCE(BaseAlgorithm):
         self.episode_num = 0
         self.rollout_buffer = None
         self.critic_estim_method = critic_estim_method
+
+        # Retrieve max episode step automatically
+        if self.env is not None:
+            self.max_episode_steps = get_time_limit(self.env, max_episode_steps)
 
         if _init_setup_model:
             self._setup_model()

@@ -21,10 +21,18 @@ MaybeCallback = Union[None, Callable, List[callbacks.BaseCallback], callbacks.Ba
 Schedule = Callable[[float], float]
 
 
+class EpisodicRolloutBufferSamples(NamedTuple):
+    observations: th.Tensor
+    actions: th.Tensor
+    policy_returns: th.Tensor
+    target_values: th.Tensor
+
+
 class RolloutBufferSamples(NamedTuple):
     observations: th.Tensor
     actions: th.Tensor
     old_values: th.Tensor
+    old_log_prob: th.Tensor
     advantages: th.Tensor
     returns: th.Tensor
 

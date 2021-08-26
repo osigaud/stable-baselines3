@@ -19,8 +19,6 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def plot_pol(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
@@ -49,7 +47,6 @@ def plot_crit(model, env, env_name, gradient_name, final_string="post"):
 def init_test_reinforce():
     args = get_args()
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-    max_episode_steps = get_time_limit(env_vec, None)
     model = REINFORCE(
         "MlpPolicy",
         args.env_name,
@@ -57,7 +54,6 @@ def init_test_reinforce():
         optimizer_name="sgd",
         seed=1,
         verbose=1,
-        max_episode_steps=max_episode_steps,
     )
     model.learn(int(1e5))
 
