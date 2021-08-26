@@ -186,7 +186,7 @@ class REINFORCE(BaseAlgorithm):
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 if expert_pol:
-                    actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, var=True)
+                    actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, add_noise=True)
                 else:
                     actions, log_probs = self.actor.forward(obs_tensor)
                     # Note(antonin): value computation is probably not needed anymore here
