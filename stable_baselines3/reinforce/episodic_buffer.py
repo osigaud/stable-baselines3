@@ -217,19 +217,12 @@ class EpisodicBuffer(BaseBuffer):
         self.get_discounted_sum_rewards()
         self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
 
-    def subtract_baseline(self) -> None:
-        """
-        Subtracts the values to the reward of all samples of all episodes
-        :return: nothing
-        """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep] = self.rewards[ep] - self.values[ep]
-
     def get_exponentiated_rewards(self, beta) -> None:
         """
         Apply an exponentiation factor to the rewards of all samples of all episodes
         :param beta: the exponentiation factor
         """
+        # TODO(antonin): add a clip parameter to clip large values?
         for ep in range(self.nb_rollouts):
             self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
 
@@ -250,7 +243,7 @@ class EpisodicBuffer(BaseBuffer):
                     # and we are not handling timeout separately yet
                     target = self.rewards[ep, step]
                 else:
-                    target = self.rewards[ep, step] + self.gamma * self.gae_lambda * self.values[ep, step + 1]
+                    target = self.rewards[ep, step] + self.gamma * self.values[ep, step + 1]
                 self.target_values[ep, step] = target
 
     def get_target_values_nsteps(self) -> None:
