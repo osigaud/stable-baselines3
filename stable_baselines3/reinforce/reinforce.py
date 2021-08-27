@@ -6,6 +6,7 @@ import numpy as np
 import torch as th
 from gym import spaces
 from torch.nn import functional as func
+from torch.utils.data import DataLoader, TensorDataset
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
@@ -72,6 +73,8 @@ class REINFORCE(BaseAlgorithm):
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
         critic_estim_method: Optional[str] = "mc",
+        n_critic_epochs: int = 25,
+        critic_batch_size: int = -1,  # complete batch
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -104,6 +107,8 @@ class REINFORCE(BaseAlgorithm):
         self.log_interval = 10
         self.gradient_name = gradient_name
         self.critic_estim_method = critic_estim_method
+        self.n_critic_epochs = n_critic_epochs
+        self.critic_batch_size = critic_batch_size
 
         if gradient_name == "gae":
             assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
@@ -284,22 +289,30 @@ class REINFORCE(BaseAlgorithm):
             raise NotImplementedError(f"The critic computation method {self.critic_estim_method} is unknown")
 
         # Make the value function converge
-        # TODO: use minibatches?
-        n_critic_epochs = 25
-        for _ in range(n_critic_epochs):
-            rollout_data = self.rollout_buffer.get_samples()
+        rollout_data = self.rollout_buffer.get_samples()
+        batch_size = self.critic_batch_size
+        if self.critic_batch_size == -1:
+            batch_size = len(rollout_data.target_values)  # complete batch
 
-            values = self.critic(rollout_data.observations).flatten()
+        training_data = TensorDataset(rollout_data.observations, rollout_data.target_values)
+        train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=False)
 
-            value_loss = func.mse_loss(rollout_data.target_values, values)
+        for _ in range(self.n_critic_epochs):
+            # NOTE: Optionally, we could recompute target (when using TD target)
+            for observations, target_values in train_dataloader:
+                values = self.critic(observations).flatten()
 
-            # Optimization step
-            self.critic.optimizer.zero_grad()
-            value_loss.backward()
+                value_loss = func.mse_loss(target_values, values)
+                # Optimization step
+                self.critic.optimizer.zero_grad()
+                value_loss.backward()
 
-            self.critic.optimizer.step()
+                self.critic.optimizer.step()
 
-        explained_var = explained_variance(values.detach().cpu().numpy(), rollout_data.target_values.detach().cpu().numpy())
+        with th.no_grad():
+            values = self.critic(rollout_data.observations).flatten().detach().cpu().numpy()
+
+        explained_var = explained_variance(values, rollout_data.target_values.cpu().numpy())
 
         self.logger.record("train/value_loss", value_loss.item())
         self.logger.record("train/explained_variance", explained_var)
