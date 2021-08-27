@@ -27,7 +27,7 @@ def test_reinforce(gradient_name):
         gradient_name=gradient_name,
         seed=1,
         verbose=1,
-        # nb_rollouts=nb_rollouts,
+        critic_estim_method=None if gradient_name != "gae" else "mc",
         **kwargs,
     )
     model.learn(50, log_interval=100)
@@ -41,8 +41,7 @@ def test_reinforce(gradient_name):
         "n steps",
     ],
 )
-@pytest.mark.parametrize("use_baseline", [False, True])
-def test_critic(critic_estim_method, use_baseline):
+def test_critic(critic_estim_method):
     # Make numpy throw exceptions
     np.seterr(all="raise")
     model = REINFORCE(
@@ -52,7 +51,5 @@ def test_critic(critic_estim_method, use_baseline):
         seed=1,
         verbose=1,
         critic_estim_method=critic_estim_method,
-        use_baseline=use_baseline,
-        # **kwargs,
     )
-    model.learn(50, log_interval=100)
+    model.learn(50, log_interval=2)

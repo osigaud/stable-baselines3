@@ -38,7 +38,6 @@ class REINFORCE(BaseAlgorithm):
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
-    :param normalize_advantage: Whether to normalize or not the advantage
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
@@ -72,9 +71,7 @@ class REINFORCE(BaseAlgorithm):
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
-        normalize_advantage: bool = False,
-        use_baseline: bool = False,
-        critic_estim_method: str = "mc",
+        critic_estim_method: Optional[str] = "mc",
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -94,7 +91,6 @@ class REINFORCE(BaseAlgorithm):
                 spaces.MultiBinary,
             ),
         )
-        self.gradient_name = gradient_name
         self.beta = beta
         self.max_episode_steps = max_episode_steps
         self.n_steps = n_steps
@@ -103,12 +99,14 @@ class REINFORCE(BaseAlgorithm):
         self.ent_coef = ent_coef
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
-        self.normalize_advantage = normalize_advantage
-        self.use_baseline = use_baseline
         self.episode_num = 0
         self.rollout_buffer = None
         self.log_interval = 10
+        self.gradient_name = gradient_name
         self.critic_estim_method = critic_estim_method
+
+        if gradient_name == "gae":
+            assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
 
         # Retrieve max episode step automatically
         if self.env is not None:
@@ -246,7 +244,7 @@ class REINFORCE(BaseAlgorithm):
             action_loss.sum().backward()
             self.policy.optimizer.step()
 
-    def post_processing(self) -> None:
+    def compute_policy_returns(self) -> None:
         """
         Post-processing step: compute the return using different gradient computation criteria
         For more information, see https://www.youtube.com/watch?v=GcJ9hl3T6x8&t=23s
@@ -323,13 +321,7 @@ class REINFORCE(BaseAlgorithm):
 
         log_prob, _ = self.actor.evaluate_actions(rollout_data.observations, actions)
 
-        # Policy gradient loss
-        # print("size", self.rollout_buffer.size())
-        # print("reinf 294 : size, advs", advantages.shape, advantages)
-        # print("reinf 294 : size, values", values.shape, values)
-        # print("sizes", self.rollout_buffer.episode_lengths)
-
-        if self.use_baseline and self.gradient_name != "gae":
+        if self.critic_estim_method is not None and self.gradient_name != "gae":
             policy_returns -= values
         policy_loss = -(policy_returns * log_prob).mean()
 
@@ -347,11 +339,10 @@ class REINFORCE(BaseAlgorithm):
         # Update learning rate according to lr schedule
         self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 
-        if self.use_baseline or self.gradient_name == "gae":
+        if self.critic_estim_method is not None or self.gradient_name == "gae":
             self.update_critic()
 
-        # Compute policy returns
-        self.post_processing()
+        self.compute_policy_returns()
 
         self.update_actor()
 

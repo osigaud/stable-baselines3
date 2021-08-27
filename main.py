@@ -15,7 +15,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 
-def plot_pol(model, env, env_name, gradient_name, final_string="post"):
+def plot_policy(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":
         plot_pendulum_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
@@ -27,7 +27,7 @@ def plot_pol(model, env, env_name, gradient_name, final_string="post"):
         plot_nd_policy(model.policy, env, deterministic=True, figname=actname, plot=False)
 
 
-def plot_crit(model, env, env_name, gradient_name, final_string="post"):
+def plot_critic(model, env, env_name, gradient_name, final_string="post"):
     critname = env_name + "_critic_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":
         plot_pendulum_critic(model.policy, env, figname=critname, plot=False)
@@ -65,8 +65,9 @@ def test_reinforce() -> None:
     # args.gradients = ["discount"]
     # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
     args.gradients = ["sum", "discount", "gae"]
-    use_baseline = True
     args.nb_rollouts = 25
+    # When a critic estimation method is specified
+    # it is automatically used as a baseline
     args.critic_estim_method = "mc"
     # Create and wrap the environment
     env = gym.make(args.env_name)
@@ -100,12 +101,11 @@ def test_reinforce() -> None:
             verbose=1,
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
-            use_baseline=use_baseline,
             critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
-            plot_pol(model, env, args.env_name, grads[i], final_string="pre")
-            plot_crit(model, env, args.env_name, grads[i], final_string="pre")
+            plot_policy(model, env, args.env_name, grads[i], final_string="pre")
+            plot_critic(model, env, args.env_name, grads[i], final_string="pre")
 
         model.learn(
             total_timesteps=50000,
@@ -116,8 +116,8 @@ def test_reinforce() -> None:
         )
 
         if plot_policies:
-            plot_pol(model, env, args.env_name, grads[i], final_string="post")
-            plot_crit(model, env, args.env_name, grads[i], final_string="post")
+            plot_policy(model, env, args.env_name, grads[i], final_string="post")
+            plot_critic(model, env, args.env_name, grads[i], final_string="post")
 
     chrono.stop()
     # plot_results(args)
@@ -133,8 +133,8 @@ def test_imitation_cmc() -> None:
     args.env_name = "MountainCarContinuous-v0"
     # args.gradients = ["discount", "normalized sum", "normalized discounted", "sum", "n step", "gae"]
     args.gradients = ["discount"]
-    use_baseline = False
     args.nb_rollouts = 8
+    args.critic_estim_method = None
     # Create and wrap the environment
     env = gym.make(args.env_name)
     env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
@@ -166,11 +166,10 @@ def test_imitation_cmc() -> None:
             verbose=1,
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
-            use_baseline=use_baseline,
             critic_estim_method=args.critic_estim_method,
         )
         if plot_policies:
-            plot_pol(model, env, args.env_name, grads[i], final_string="pre")
+            plot_policy(model, env, args.env_name, grads[i], final_string="pre")
 
         eval_callback2 = EvalCallback(
             env_vec,
@@ -184,7 +183,7 @@ def test_imitation_cmc() -> None:
         model.collect_expert_rollout(nb_rollouts=20, callback=eval_callback2)
         rollout_data = model.rollout_buffer.get_samples()
         plot_trajectory(rollout_data, env, 1)
-        plot_pol(model, env, args.env_name, grads[i], final_string="imit")
+        plot_policy(model, env, args.env_name, grads[i], final_string="imit")
         args.nb_rollouts = 20
         model.learn(
             nb_epochs=20 * args.nb_repet,
@@ -194,7 +193,7 @@ def test_imitation_cmc() -> None:
         )
 
         if plot_policies:
-            plot_pol(model, env, args.env_name, grads[i], final_string="post")
+            plot_policy(model, env, args.env_name, grads[i], final_string="post")
 
     chrono.stop()
 
@@ -234,11 +233,11 @@ def test_cem() -> None:
         tensorboard_log=log_file_name,
     )
     if plot_policies:
-        plot_pol(model, env, args.env_name, "cem", final_string="pre")
+        plot_policy(model, env, args.env_name, "cem", final_string="pre")
 
     model.learn(reset_num_timesteps=True, callback=eval_callback, log_interval=args.log_interval)
     if plot_policies:
-        plot_pol(model, env, args.env_name, "cem", final_string="post")
+        plot_policy(model, env, args.env_name, "cem", final_string="post")
 
     chrono.stop()
 

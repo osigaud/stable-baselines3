@@ -61,7 +61,7 @@ def get_args():
     parser.add_argument(
         "--gradients", type=str, nargs="+", default=["gae", "sum", "discount", "normalize"], help="other: baseline, beta"
     )
-    parser.add_argument("--critic_estim_method", type=str, default="td", help="critic estimation method: mc, td or nstep")
+    parser.add_argument("--critic_estim_method", type=str, help="critic estimation method: mc, td or nstep")
     # learning parameters
     parser.add_argument("--gamma", type=float, default=0.99, help="discount factor")
     parser.add_argument("--lr_actor", type=float, default=0.01, help="learning rate of the actor")
