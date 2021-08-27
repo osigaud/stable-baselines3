@@ -16,8 +16,8 @@ from stable_baselines3 import REINFORCE
         "gae",
     ],
 )
-# @pytest.mark.parametrize("nb_rollouts", [1, 3])
-def test_reinforce(gradient_name):
+@pytest.mark.parametrize("nb_rollouts", [1, 3])
+def test_reinforce(gradient_name, nb_rollouts):
     # Make numpy throw exceptions
     np.seterr(all="raise")
     kwargs = dict(beta=0.9) if gradient_name == "beta" else {}
@@ -30,7 +30,7 @@ def test_reinforce(gradient_name):
         critic_estim_method=None if gradient_name != "gae" else "mc",
         **kwargs,
     )
-    model.learn(50, log_interval=100)
+    model.learn(200, nb_rollouts=nb_rollouts, log_interval=5)
 
 
 @pytest.mark.parametrize(

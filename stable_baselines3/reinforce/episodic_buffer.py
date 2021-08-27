@@ -180,27 +180,26 @@ class EpisodicBuffer(BaseBuffer):
     def get_discounted_sum_rewards(self) -> None:
         """
         Apply a discounted sum of rewards to all samples of all episodes
-        :return: nothing
         """
         for ep in range(self.nb_rollouts):
-            summ = 0
+            sum_discounted_rewards = 0
             for i in reversed(range(self.episode_lengths[ep])):
-                summ = summ * self.gamma + self.rewards[ep, i]
-                self.policy_returns[ep, i] = summ
+                sum_discounted_rewards = self.rewards[ep, i] + self.gamma * sum_discounted_rewards
+                self.policy_returns[ep, i] = sum_discounted_rewards
 
     def get_sum_rewards(self) -> None:
         """
         Apply a sum of rewards to all samples of all episodes
         """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep, :] = np.sum(self.rewards[ep])
+        # NOTE(antonin): to be completely correct, we should only
+        # fill policy_returns until the episode_lengths
+        self.policy_returns[:, :] = self.rewards.sum(axis=1, keepdims=True)
 
     def get_normalized_rewards(self) -> None:
         """
         Normalize rewards of all samples of all episodes
         """
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep] = self.rewards[ep]
+        self.policy_returns = self.rewards.copy()
         self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
 
     def get_normalized_sum(self) -> None:
@@ -223,16 +222,14 @@ class EpisodicBuffer(BaseBuffer):
         :param beta: the exponentiation factor
         """
         # TODO(antonin): add a clip parameter to clip large values?
-        for ep in range(self.nb_rollouts):
-            self.policy_returns[ep, :] = np.exp(self.rewards[ep] / beta)
+        self.policy_returns[:, :] = np.exp(self.rewards[:, :] / beta)
 
     def get_target_values_mc(self) -> None:
         """
         Warning: is only OK for V values
         """
         self.get_discounted_sum_rewards()
-        for ep in range(self.nb_rollouts):
-            self.target_values[ep] = self.policy_returns[ep]
+        self.target_values = self.policy_returns.copy()
 
     def get_target_values_td(self) -> None:
         """ """
@@ -272,7 +269,6 @@ class EpisodicBuffer(BaseBuffer):
         """
         Apply Bellman backup n-step return to all rewards of all samples of all episodes
         Though this seems to work in practice, not sure it makes much sense
-        :return: nothing
         """
         for ep in range(self.nb_rollouts):
             for i in range(self.episode_lengths[ep]):
