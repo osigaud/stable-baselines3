@@ -109,7 +109,7 @@ def test_reinforce() -> None:
 
         model.learn(
             total_timesteps=50000,
-            nb_epochs=10 * args.nb_repet,
+            # nb_epochs=10 * args.nb_repet,
             nb_rollouts=args.nb_rollouts,
             callback=eval_callback,
             log_interval=args.log_interval,
