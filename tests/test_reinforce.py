@@ -30,7 +30,7 @@ def test_reinforce(gradient_name, nb_rollouts):
         critic_estim_method=None if gradient_name != "gae" else "mc",
         **kwargs,
     )
-    model.learn(200, nb_rollouts=nb_rollouts, log_interval=5)
+    model.learn(200, nb_rollouts=nb_rollouts, log_interval=2)
 
 
 @pytest.mark.parametrize(
@@ -53,3 +53,23 @@ def test_critic(critic_estim_method):
         critic_estim_method=critic_estim_method,
     )
     model.learn(50, log_interval=2)
+
+
+# def test_debug():
+#     import gym
+#     from visu.visu_critics import plot_cartpole_critic
+#
+#     model = REINFORCE(
+#         "MlpPolicy",
+#         "CartPole-v1",
+#         gradient_name="sum",
+#         seed=3,
+#         verbose=1,
+#         critic_estim_method="mc",
+#         gamma=0.999,
+#         gae_lambda=0.98,
+#     )
+#
+#     model.learn(int(1e5), log_interval=10, nb_rollouts=10)
+#
+#     plot_cartpole_critic(model.policy, gym.make("CartPole-v1"), figname="test", plot=True)
