@@ -180,6 +180,8 @@ class REINFORCE(BaseAlgorithm):
         :return: True if function returned with at least `n_rollout_steps`
             collected, False if callback terminated rollout prematurely.
         """
+        # Switch to eval mode (this affects batch norm / dropout)
+        self.policy.set_training_mode(False)
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         rollout_buffer.reset()
@@ -350,6 +352,8 @@ class REINFORCE(BaseAlgorithm):
         Update policy using the currently gathered
         rollout buffer (one gradient step over whole data).
         """
+        # Switch to train mode (this affects batch norm / dropout)
+        self.policy.set_training_mode(True)
         # Update learning rate according to lr schedule
         self._update_learning_rate([self.actor.optimizer, self.critic.optimizer])
 

@@ -6,7 +6,7 @@ import pytest
 import torch as th
 import torch.nn as nn
 
-from stable_baselines3 import A2C, DQN, PPO, SAC, TD3
+from stable_baselines3 import A2C, DQN, PPO, REINFORCE, SAC, TD3
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
@@ -16,6 +16,7 @@ MODEL_LIST = [
     TD3,
     SAC,
     DQN,
+    REINFORCE,
 ]
 
 
@@ -127,12 +128,17 @@ def clone_on_policy_batch_norm(model: Union[A2C, PPO]) -> (th.Tensor, th.Tensor)
     return clone_batch_norm_stats(model.policy.features_extractor.batch_norm)
 
 
+def clone_reinforce_batch_norm(model: REINFORCE) -> (th.Tensor, th.Tensor):
+    return clone_batch_norm_stats(model.actor.features_extractor.batch_norm)
+
+
 CLONE_HELPERS = {
     A2C: clone_on_policy_batch_norm,
     DQN: clone_dqn_batch_norm_stats,
     SAC: clone_sac_batch_norm_stats,
     TD3: clone_td3_batch_norm_stats,
     PPO: clone_on_policy_batch_norm,
+    REINFORCE: clone_reinforce_batch_norm,
 }
 
 
@@ -256,9 +262,9 @@ def test_sac_train_with_batch_norm():
     assert th.isclose(critic_target_running_mean_before, critic_target_running_mean_after).all()
 
 
-@pytest.mark.parametrize("model_class", [A2C, PPO])
+@pytest.mark.parametrize("model_class", [A2C, PPO, REINFORCE])
 @pytest.mark.parametrize("env_id", ["Pendulum-v0", "CartPole-v1"])
-def test_a2c_ppo_train_with_batch_norm(model_class, env_id):
+def test_onpolicy_train_with_batch_norm(model_class, env_id):
     model = model_class(
         "MlpPolicy",
         env_id,
@@ -266,11 +272,13 @@ def test_a2c_ppo_train_with_batch_norm(model_class, env_id):
         seed=1,
     )
 
-    bias_before, running_mean_before = clone_on_policy_batch_norm(model)
+    clone_helper = CLONE_HELPERS[model_class]
+
+    bias_before, running_mean_before = clone_helper(model)
 
     model.learn(total_timesteps=200)
 
-    bias_after, running_mean_after = clone_on_policy_batch_norm(model)
+    bias_after, running_mean_after = clone_helper(model)
 
     assert ~th.isclose(bias_before, bias_after).all()
     assert ~th.isclose(running_mean_before, running_mean_after).all()
