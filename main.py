@@ -15,6 +15,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.reinforce.incomplete_buffer import IncompleteBuffer
 
+
 def plot_policy(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
     if env_name == "Pendulum-v0":

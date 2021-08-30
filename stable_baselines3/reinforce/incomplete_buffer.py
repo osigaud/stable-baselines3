@@ -1,13 +1,12 @@
-import torch as th
-
-from gym import spaces
 from typing import Union
+
+import torch as th
+from gym import spaces
 
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 
 
 class IncompleteBuffer(EpisodicBuffer):
-
     def __init__(
         self,
         observation_space: spaces.Space,
@@ -34,7 +33,7 @@ class IncompleteBuffer(EpisodicBuffer):
             nb_rollouts=nb_rollouts,
             max_episode_steps=max_episode_steps,
             verbose=verbose,
-            )
+        )
 
     def get_discounted_sum_rewards(self) -> None:
         """
