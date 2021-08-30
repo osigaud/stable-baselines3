@@ -13,7 +13,7 @@ from stable_baselines3 import CEM, REINFORCE
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import DummyVecEnv
-
+from stable_baselines3.reinforce.incomplete_buffer import IncompleteBuffer
 
 def plot_policy(model, env, env_name, gradient_name, final_string="post"):
     actname = env_name + "_actor_" + gradient_name + "_" + final_string + ".pdf"
@@ -102,6 +102,7 @@ def test_reinforce() -> None:
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
             critic_estim_method=args.critic_estim_method,
+            buffer_class=IncompleteBuffer,
         )
         if plot_policies:
             plot_policy(model, env, args.env_name, grads[i], final_string="pre")

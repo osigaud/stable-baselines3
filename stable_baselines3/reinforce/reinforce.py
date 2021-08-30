@@ -15,6 +15,7 @@ from stable_baselines3.common.utils import explained_variance, obs_as_tensor, sa
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
+from stable_baselines3.reinforce.incomplete_buffer import IncompleteBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
 from stable_baselines3.reinforce.policies import REINFORCEPolicy
 
@@ -75,6 +76,7 @@ class REINFORCE(BaseAlgorithm):
         critic_estim_method: Optional[str] = "mc",
         n_critic_epochs: int = 25,
         critic_batch_size: int = -1,  # complete batch
+        buffer_class : Optional[EpisodicBuffer] = None,
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -109,6 +111,7 @@ class REINFORCE(BaseAlgorithm):
         self.critic_estim_method = critic_estim_method
         self.n_critic_epochs = n_critic_epochs
         self.critic_batch_size = critic_batch_size
+        self.buffer_class = buffer_class
 
         if gradient_name == "gae":
             assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
@@ -143,18 +146,32 @@ class REINFORCE(BaseAlgorithm):
         return state_dicts, []
 
     def init_buffer(self, nb_rollouts):
-        self.rollout_buffer = EpisodicBuffer(
-            self.observation_space,
-            self.action_space,
-            self.device,
-            self.gae_lambda,
-            self.gamma,
-            self.n_envs,
-            self.n_steps,
-            self.beta,
-            nb_rollouts,
-            max_episode_steps=self.max_episode_steps,
-        )
+        if self.buffer_class is IncompleteBuffer:
+            self.rollout_buffer = IncompleteBuffer(
+                self.observation_space,
+                self.action_space,
+                self.device,
+                self.gae_lambda,
+                self.gamma,
+                self.n_envs,
+                self.n_steps,
+                self.beta,
+                nb_rollouts,
+                max_episode_steps=self.max_episode_steps,
+            )
+        else:
+            self.rollout_buffer = EpisodicBuffer(
+                self.observation_space,
+                self.action_space,
+                self.device,
+                self.gae_lambda,
+                self.gamma,
+                self.n_envs,
+                self.n_steps,
+                self.beta,
+                nb_rollouts,
+                max_episode_steps=self.max_episode_steps,
+            )
 
     def reset_episodes(self):
         self.episode_num = 0
