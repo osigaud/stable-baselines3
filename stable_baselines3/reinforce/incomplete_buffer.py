@@ -1,8 +1,7 @@
-import numpy as np
 import torch as th
 
 from gym import spaces
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Union
 
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 
