@@ -77,6 +77,7 @@ class DQN(OffPolicyAlgorithm):
         exploration_fraction: float = 0.1,
         exploration_initial_eps: float = 1.0,
         exploration_final_eps: float = 0.05,
+        double_q: bool = False,
         max_grad_norm: float = 10,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -123,6 +124,7 @@ class DQN(OffPolicyAlgorithm):
         # Linear schedule will be defined in `_setup_model()`
         self.exploration_schedule = None
         self.q_net, self.q_net_target = None, None
+        self.double_q = double_q
 
         if _init_setup_model:
             self._setup_model()
@@ -165,10 +167,18 @@ class DQN(OffPolicyAlgorithm):
             with th.no_grad():
                 # Compute the next Q-values using the target network
                 next_q_values = self.q_net_target(replay_data.next_observations)
-                # Follow greedy policy: use the one with the highest value
-                next_q_values, _ = next_q_values.max(dim=1)
-                # Avoid potential broadcast issue
-                next_q_values = next_q_values.reshape(-1, 1)
+                if self.double_q:
+                    # Decouple action selection from value estimation
+                    next_q_values_online = self.q_net(replay_data.next_observations)
+                    # Select action with online network
+                    next_actions_online = next_q_values_online.argmax(dim=1).reshape(-1, 1)
+                    # Estimate using target q network
+                    next_q_values = th.gather(next_q_values, dim=1, index=next_actions_online)
+                else:
+                    # Follow greedy policy: use the one with the highest value
+                    next_q_values, _ = next_q_values.max(dim=1)
+                    # Avoid potential broadcast issue
+                    next_q_values = next_q_values.reshape(-1, 1)
                 # 1-step TD target
                 target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
