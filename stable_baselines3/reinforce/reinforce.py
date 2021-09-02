@@ -380,10 +380,9 @@ class REINFORCE(BaseAlgorithm):
         total_steps: int,
         callback: MaybeCallback = None,
         expert_pol: bool = False,
-    ) -> None:
+    ) -> bool:
 
-        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
-        assert collect_ok, "Collect rollout stopped unexpectedly"
+        continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
 
         self._update_current_progress_remaining(self.num_timesteps, total_steps)
         # Display training infos
@@ -397,7 +396,11 @@ class REINFORCE(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         if self.logger.name_to_value["time/iterations"] % self.log_interval == 0:
             self.logger.dump(step=self.num_timesteps)
+
+        if continue_training is False:
+            return continue_training
         self.train()
+        return True
 
     def collect_expert_rollout(
         self,
@@ -455,13 +458,16 @@ class REINFORCE(BaseAlgorithm):
         if total_timesteps is None:
             for i in range(nb_epochs):
                 self.logger.record("time/iterations", i, exclude="tensorboard")
-                self.learn_one_epoch(total_steps, callback)
+                continue_training = self.learn_one_epoch(total_steps, callback)
+                if continue_training is False:
+                    break
         else:
             i = 0
             while self.num_timesteps < total_timesteps:
                 i += 1
                 self.logger.record("time/iterations", i, exclude="tensorboard")
-                self.learn_one_epoch(total_steps, callback)
-
+                continue_training = self.learn_one_epoch(total_steps, callback)
+                if continue_training is False:
+                    break
         callback.on_training_end()
         return self
