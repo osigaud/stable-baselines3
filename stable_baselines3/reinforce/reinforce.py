@@ -75,6 +75,7 @@ class REINFORCE(BaseAlgorithm):
         n_critic_epochs: int = 25,
         critic_batch_size: int = -1,  # complete batch
         buffer_class: Type[EpisodicBuffer] = EpisodicBuffer,
+        nb_rollouts: int = 5,
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -110,6 +111,7 @@ class REINFORCE(BaseAlgorithm):
         self.n_critic_epochs = n_critic_epochs
         self.critic_batch_size = critic_batch_size
         self.buffer_class = buffer_class
+        self.nb_rollouts = nb_rollouts
 
         if gradient_name == "gae":
             assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
@@ -418,7 +420,7 @@ class REINFORCE(BaseAlgorithm):
         self,
         total_timesteps: Optional[int] = None,
         nb_epochs: Optional[int] = None,
-        nb_rollouts: int = 1,
+        nb_rollouts: Optional[int] = None,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         eval_env: Optional[GymEnv] = None,
@@ -440,6 +442,8 @@ class REINFORCE(BaseAlgorithm):
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
+        # Allow to overwrite the nb rollout parameter
+        nb_rollouts = nb_rollouts or self.nb_rollouts
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
         self.log_interval = log_interval
