@@ -31,12 +31,10 @@ class REINFORCE(BaseAlgorithm):
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: The learning rate, it can be a function
         of the current progress remaining (from 1 to 0)
-    :param n_steps: N of N-step return
     :param gamma: Discount factor
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
     :param ent_coef: Entropy coefficient for the loss calculation
-    :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -46,6 +44,14 @@ class REINFORCE(BaseAlgorithm):
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
+    :param gradient_name:
+    :param n_steps: N of N-step return
+    :param beta:
+    :param critic_estim_method:
+    :param n_critic_epochs:
+    :param critic_batch_size:
+    :param buffer_class:
+    :param nb_rollouts:
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
@@ -53,8 +59,6 @@ class REINFORCE(BaseAlgorithm):
         self,
         policy: Union[str, Type[REINFORCEPolicy]],
         env: Union[GymEnv, str],
-        gradient_name: str = "sum",
-        beta: float = 0.0,
         max_episode_steps: Optional[int] = None,
         policy_base: Type[REINFORCEPolicy] = REINFORCEPolicy,
         learning_rate: Union[float, Schedule] = 0.01,
@@ -64,18 +68,19 @@ class REINFORCE(BaseAlgorithm):
         device: Union[th.device, str] = "auto",
         create_eval_env: bool = False,
         seed: Optional[int] = None,
-        _init_setup_model: bool = True,
-        n_steps: int = 5,
         gamma: float = 0.99,
         gae_lambda: float = 0.98,
         ent_coef: float = 0.0,
-        vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
+        gradient_name: str = "sum",
+        n_steps: int = 5,
+        beta: float = 1.0,
         critic_estim_method: Optional[str] = "mc",
         n_critic_epochs: int = 25,
         critic_batch_size: int = -1,  # complete batch
         buffer_class: Type[EpisodicBuffer] = EpisodicBuffer,
         nb_rollouts: int = 5,
+        _init_setup_model: bool = True,
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -101,7 +106,6 @@ class REINFORCE(BaseAlgorithm):
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.ent_coef = ent_coef
-        self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.episode_num = 0
         self.rollout_buffer = None
