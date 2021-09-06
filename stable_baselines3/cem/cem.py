@@ -66,6 +66,7 @@ class CEM(BaseAlgorithm):
                 spaces.Box,
                 spaces.Discrete,
             ),
+            support_multi_env=True,
         )
 
         self.pop_size = pop_size
