@@ -98,7 +98,8 @@ class CEM(BaseAlgorithm):
         params = self.get_params(self.policy)
         self.train_policy = deepcopy(self.policy)
         self.policy_dim = params.shape[0]
-        print(f"policy dim: {self.policy_dim}")
+        if self.verbose > 0:
+            print(f"policy dim: {self.policy_dim}")
 
     @staticmethod
     def to_numpy(tensor):
