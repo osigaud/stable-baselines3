@@ -1,4 +1,5 @@
 import time
+from copy import deepcopy
 from typing import Any, Dict, Optional, Type, Union
 
 import numpy as np
@@ -19,8 +20,6 @@ class CEM(BaseAlgorithm):
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
-    :param learning_rate: The learning rate, it can be a function
-        of the current progress remaining (from 1 to 0)
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
@@ -40,8 +39,9 @@ class CEM(BaseAlgorithm):
         elit_frac_size: float = 0.2,
         sigma: float = 0.2,
         noise_multiplier: float = 0.999,
+        n_eval_episodes: int = 5,
+        nb_iterations: Optional[int] = None,
         policy_base: Type[BasePolicy] = CEMPolicy,
-        learning_rate: Union[float, Schedule] = 7e-4,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -55,7 +55,7 @@ class CEM(BaseAlgorithm):
             policy,
             env,
             policy_base=policy_base,
-            learning_rate=learning_rate,
+            learning_rate=0.0,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -71,6 +71,10 @@ class CEM(BaseAlgorithm):
         self.pop_size = pop_size
         self.elit_frac_size = elit_frac_size
         self.elites_nb = int(self.elit_frac_size * self.pop_size)
+        self.n_eval_episodes = n_eval_episodes
+        self.train_policy = None
+        self.nb_iterations = nb_iterations
+        self.best_score = -np.inf
 
         self.sigma = sigma
         self.noise = None
@@ -90,7 +94,8 @@ class CEM(BaseAlgorithm):
             self.observation_space, self.action_space, **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
-        params = self.get_params()
+        params = self.get_params(self.policy)
+        self.train_policy = deepcopy(self.policy)
         self.policy_dim = params.shape[0]
         print(f"policy dim: {self.policy_dim}")
 
@@ -98,11 +103,11 @@ class CEM(BaseAlgorithm):
     def to_numpy(tensor):
         return tensor.detach().numpy().flatten()
 
-    def get_params(self) -> np.ndarray:
-        return self.policy.parameters_to_vector()  # note: also retrieves critic params...
+    def get_params(self, policy: CEMPolicy) -> np.ndarray:
+        return policy.parameters_to_vector()  # note: also retrieves critic params...
 
-    def set_params(self, indiv) -> None:
-        self.policy.load_from_vector(indiv.copy())
+    def set_params(self, policy: CEMPolicy, indiv: np.ndarray) -> None:
+        policy.load_from_vector(indiv.copy())
 
     def update_noise(self) -> None:
         self.noise = self.noise * self.noise_multiplier
@@ -115,20 +120,25 @@ class CEM(BaseAlgorithm):
         self.var = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
 
     def one_loop(self, n_iter: int) -> None:
-        centroid = self.get_params()
+        centroid = self.get_params(self.train_policy)
         self.update_noise()
         scores = np.zeros(self.pop_size)
         weights = self.rng.multivariate_normal(centroid, self.var, self.pop_size)
+        # Optional: Reset best at every iteration
+        # self.best_score = -np.inf
 
         for i in range(self.pop_size):
-            self.set_params(weights[i])  # TODO: rather use a policy built on the fly
-            # TODO: repalce n_eval_episodes by a parameter
+            self.set_params(self.train_policy, weights[i])  # TODO: rather use a policy built on the fly
             episode_rewards, episode_lengths = evaluate_policy(
-                self.policy, self.env, n_eval_episodes=5, return_episode_rewards=True
+                self.train_policy, self.env, n_eval_episodes=self.n_eval_episodes, return_episode_rewards=True
             )
             scores[i] = np.mean(episode_rewards)
+            # Save best params
+            if scores[i] > self.best_score:
+                self.best_score = scores[i]
+                self.set_params(self.policy, weights[i])
             self.num_timesteps += sum(episode_lengths)
-            print(f"indiv: {i} score {scores[i]}")
+            print(f"indiv: {i} score {scores[i]:.2f}")
 
         elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
@@ -142,7 +152,7 @@ class CEM(BaseAlgorithm):
         # update the best weights
         centroid = np.array(elites_weights).mean(axis=0)
         self.var = np.cov(elites_weights, rowvar=False) + self.noise
-        self.set_params(centroid)
+        self.set_params(self.train_policy, centroid)
 
     def _dump_logs(self) -> None:
         """
@@ -166,7 +176,7 @@ class CEM(BaseAlgorithm):
         The main function to learn policies using the Cross Entropy Method
         """
         # Init the covariance matrix
-        centroid = self.get_params()
+        centroid = self.get_params(self.train_policy)
         self.init_var(centroid)
 
         for iteration in range(1, nb_iterations + 1):
@@ -199,6 +209,7 @@ class CEM(BaseAlgorithm):
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
+        nb_iterations = self.nb_iterations or nb_iterations
         callback.on_training_start(locals(), globals())
         training_ok = self.train(nb_iterations, callback=callback)
         # Can be stopped early with a callback
