@@ -139,11 +139,13 @@ class CEM(BaseAlgorithm):
                 self.best_score = scores[i]
                 self.set_params(self.policy, weights[i])
             self.num_timesteps += sum(episode_lengths)
-            print(f"indiv: {i} score {scores[i]:.2f}")
+            if self.verbose > 0:
+                print(f"indiv: {i} score {scores[i]:.2f}")
 
         elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
-        print("scores:", scores)
+        if self.verbose > 1:
+            print("scores:", scores)
         self.logger.record("train/n_updates", n_iter, exclude="tensorboard")
         self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", scores[-1])
