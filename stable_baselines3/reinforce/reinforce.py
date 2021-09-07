@@ -44,14 +44,18 @@ class REINFORCE(BaseAlgorithm):
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
-    :param gradient_name:
-    :param n_steps: N of N-step return
-    :param beta:
-    :param critic_estim_method:
-    :param n_critic_epochs:
-    :param critic_batch_size:
-    :param buffer_class:
-    :param nb_rollouts:
+    :param gradient_name: Type of policy return to use when updating the actor.
+        One of "sum", "discount", "gae", "beta", "normalized sum", "normalized discounted", "n step"
+    :param n_steps: N of N-step return (horizon)
+    :param beta: Temperature when using the "beta" strategy (AWC style)
+    :param critic_estim_method: Method used to compute the critic target.
+        One of "mc", "td ot "gae"
+    :param n_critic_epochs: Number of epoch to train the critic before updating the actor.
+    :param critic_batch_size: Mini-batch size for each gradient update of the critic.
+        By default, it uses the full batch (``critic_batch_size=-1``)
+    :param buffer_class: Type of episodic buffer to use.
+    :param nb_rollouts: Number of episodes used to collect data before updating
+        the networks. It will overwrite the parameter in ``.learn()``
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
