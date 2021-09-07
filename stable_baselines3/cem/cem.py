@@ -20,6 +20,15 @@ class CEM(BaseAlgorithm):
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
+    :param pop_size: Population size (number of individuals)
+    :param elit_frac_size: Fraction of elite individuals to keep to compute centroid
+        of the next generation
+    :param sigma: Initial noise standard deviation.
+    :param noise_multiplier: Noise decay. We add noise to the standard deviation
+        to avoid early collapse.
+    :param n_eval_episodes: Number of episodes to evaluate each individual.
+    :param nb_iterations: Number iterations to run the CEM algorithm,
+        this will overwrite the parameter of ``.learn()``
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
@@ -209,6 +218,7 @@ class CEM(BaseAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> "BaseAlgorithm":
 
+        # TODO(antonin): take total_timesteps into account for early stopping
         total_steps = total_timesteps
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
