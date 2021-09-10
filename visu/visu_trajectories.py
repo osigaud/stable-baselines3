@@ -34,8 +34,6 @@ def plot_trajectory(rollout_data, env, fig_index, save_figure=True) -> None:
     x_label, y_label = getattr(env.observation_space, "names", ["x", "y"])
 
     x, y = episode_to_traj(rollout_data)
-    print(x)
-    print(y)
     plt.scatter(x, y, c=range(1, len(rollout_data.observations) + 1), s=3)
     figname = "trajectory_" + str(fig_index) + ".pdf"
     final_show(save_figure, False, figname, x_label, y_label, "Trajectory", "/plots/")
