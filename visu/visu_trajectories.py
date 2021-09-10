@@ -18,7 +18,7 @@ def episode_to_traj(rollout_data):
     return x, y
 
 
-def plot_trajectory(rollout_data, env, fig_index, save_figure=True) -> None:
+def plot_trajectory(rollout_data, env, fig_index, save_figure=True, plot=True) -> None:
     """
     Plot the set of trajectories stored into a batch
     :param rollout_data: the source batch
@@ -36,4 +36,4 @@ def plot_trajectory(rollout_data, env, fig_index, save_figure=True) -> None:
     x, y = episode_to_traj(rollout_data)
     plt.scatter(x, y, c=range(1, len(rollout_data.observations) + 1), s=3)
     figname = "trajectory_" + str(fig_index) + ".pdf"
-    final_show(save_figure, False, figname, x_label, y_label, "Trajectory", "/plots/")
+    final_show(save_figure, plot, figname, x_label, y_label, "Trajectory", "/plots/")
