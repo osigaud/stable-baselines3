@@ -203,6 +203,7 @@ class REINFORCE(BaseAlgorithm):
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 if expert_pol:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, add_noise=True)
+                    values = 0.0
                 else:
                     actions, log_probs = self.actor.forward(obs_tensor)
                     # Note(antonin): value computation is probably not needed anymore here
@@ -423,8 +424,7 @@ class REINFORCE(BaseAlgorithm):
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
-        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
-        assert collect_ok, "Collect rollout stopped unexpectedly"
+        self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
         self.regress_policy()
 
     def learn(
