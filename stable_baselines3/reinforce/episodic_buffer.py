@@ -95,12 +95,12 @@ class EpisodicBuffer(BaseBuffer):
         infos: List[Dict[str, Any]],
     ) -> None:
 
-        self._buffer["observation"][self.episode_idx][self.current_idx] = obs
-        self._buffer["action"][self.episode_idx][self.current_idx] = action
-        self.values[self.episode_idx][self.current_idx] = value
-        self.rewards[self.episode_idx][self.current_idx] = reward
-        self.episode_starts[self.episode_idx][self.current_idx] = episode_start
-        self.dones[self.episode_idx][self.current_idx] = done
+        self._buffer["observation"][self.episode_idx, self.current_idx] = obs
+        self._buffer["action"][self.episode_idx, self.current_idx] = action
+        self.values[self.episode_idx, self.current_idx] = value
+        self.rewards[self.episode_idx, self.current_idx] = reward
+        self.episode_starts[self.episode_idx, self.current_idx] = episode_start
+        self.dones[self.episode_idx, self.current_idx] = done
         # update current pointer
         self.current_idx += 1
         self.episode_steps += 1
