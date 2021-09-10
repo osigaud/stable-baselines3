@@ -257,7 +257,7 @@ class REINFORCE(BaseAlgorithm):
         actions = rollout_data.actions
         action_loss = 1e20
         while action_loss > 0.1:
-            self_actions, _, _ = self.policy.forward(obs)
+            self_actions, _ = self.actor.forward(obs)
             action_loss = func.mse_loss(actions, self_actions)
             self.policy.optimizer.zero_grad()
             action_loss.sum().backward()
