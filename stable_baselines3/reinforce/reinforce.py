@@ -259,9 +259,9 @@ class REINFORCE(BaseAlgorithm):
         while action_loss > 0.1:
             self_actions, _ = self.actor.forward(obs)
             action_loss = func.mse_loss(actions, self_actions)
-            self.policy.optimizer.zero_grad()
+            self.actor.optimizer.zero_grad()
             action_loss.sum().backward()
-            self.policy.optimizer.step()
+            self.actor.optimizer.step()
 
     def compute_policy_returns(self) -> None:
         """
@@ -420,7 +420,7 @@ class REINFORCE(BaseAlgorithm):
     ) -> None:
 
         total_steps = nb_rollouts * self.max_episode_steps
-        total_steps, _ = self._setup_learn(
+        total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
