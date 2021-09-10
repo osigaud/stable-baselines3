@@ -92,7 +92,7 @@ def test_reinforce() -> None:
         model = REINFORCE(
             "MlpPolicy",
             env,
-            grads[i],
+            gradient_name=grads[i],
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
@@ -158,7 +158,7 @@ def test_imitation_cmc() -> None:
         model = REINFORCE(
             "MlpPolicy",
             env,
-            grads[i],
+            gradient_name=grads[i],
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
@@ -227,7 +227,6 @@ def test_cem() -> None:
     model = CEM(
         "MlpPolicy",
         args.env_name,
-        learning_rate=args.lr_actor,
         seed=1,
         verbose=1,
         policy_kwargs=policy_kwargs,
@@ -245,6 +244,6 @@ def test_cem() -> None:
 
 if __name__ == "__main__":
     # init_test_reinforce()
-    test_reinforce()
-    # test_imitation_cmc()
+    # test_reinforce()
+    test_imitation_cmc()
     # test_cem()
