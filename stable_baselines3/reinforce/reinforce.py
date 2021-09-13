@@ -277,7 +277,7 @@ class REINFORCE(BaseAlgorithm):
             self.rollout_buffer.get_discounted_sum_rewards()
         elif self.gradient_name == "normalized sum":
             self.rollout_buffer.get_normalized_sum()
-        elif self.gradient_name == "normalized discounted":
+        elif self.gradient_name == "normalized discount":
             self.rollout_buffer.get_normalized_discounted_rewards()
         elif self.gradient_name == "n step":
             self.rollout_buffer.get_n_step_return()
