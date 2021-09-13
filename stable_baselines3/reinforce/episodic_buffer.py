@@ -191,16 +191,17 @@ class EpisodicBuffer(BaseBuffer):
         """
         Apply a sum of rewards to all samples of all episodes
         """
-        # NOTE(antonin): to be completely correct, we should only
-        # fill policy_returns until the episode_lengths
-        self.policy_returns[:, :] = self.rewards.sum(axis=1, keepdims=True)
+        for ep, ep_len in enumerate(self.episode_lengths):
+            self.policy_returns[ep, :] = self.rewards[ep, :ep_len].sum()
 
     def get_normalized_rewards(self) -> None:
         """
         Normalize rewards of all samples of all episodes
         """
-        self.policy_returns = self.rewards.copy()
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
+        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
+        all_rewards = self.rewards[all_episodes.astype(np.uint64), all_transitions]
+        self.policy_returns = (self.policy_returns - all_rewards.mean()) / (all_rewards.std() + 1e-8)
 
     def get_normalized_sum(self) -> None:
         """
@@ -214,7 +215,10 @@ class EpisodicBuffer(BaseBuffer):
         Apply a normalized and discounted sum of rewards to all samples of the episode
         """
         self.get_discounted_sum_rewards()
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
+        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
+        all_rewards = self.rewards[all_episodes.astype(np.uint64), all_transitions]
+        self.policy_returns = (self.policy_returns - all_rewards.mean()) / (all_rewards.std() + 1e-8)
 
     def get_exponentiated_rewards(self, beta) -> None:
         """

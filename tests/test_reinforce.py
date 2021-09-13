@@ -11,7 +11,7 @@ from stable_baselines3 import REINFORCE
         "sum",
         "discount",
         "normalized sum",
-        "normalized discounted",
+        "normalized discount",
         "n step",
         "gae",
     ],
