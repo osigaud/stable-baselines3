@@ -4,18 +4,47 @@ Changelog
 ==========
 
 
-Release 1.2.0a3 (WIP)
+Release 1.2.1a0 (WIP)
 ---------------------------
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+- Added method ``get_distribution`` for ``ActorCriticPolicy`` for A2C/PPO/TRPO (@cyprienc)
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
+
+Release 1.2.0 (2021-09-03)
+---------------------------
+
+**Hotfix for VecNormalize, training/eval mode support**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - SB3 now requires PyTorch >= 1.8.1
+- ``VecNormalize`` ``ret`` attribute was renamed to ``returns``
 
 New Features:
 ^^^^^^^^^^^^^
 
 Bug Fixes:
 ^^^^^^^^^^
+- Hotfix for ``VecNormalize`` where the observation filter was not updated at reset (thanks @vwxyzjn)
 - Fixed model predictions when using batch normalization and dropout layers by calling ``train()`` and ``eval()`` (@davidblom603)
 - Fixed model training for DQN, TD3 and SAC so that their target nets always remain in evaluation mode (@ayeright)
 - Passing ``gradient_steps=0`` to an off-policy algorithm will result in no gradient steps being taken (vs as many gradient steps as steps done in the environment
@@ -28,6 +57,7 @@ Others:
 ^^^^^^^
 - Enabled Python 3.9 in GitHub CI
 - Fixed type annotations
+- Refactored ``predict()`` by moving the preprocessing to ``obs_to_tensor()`` method
 
 Documentation:
 ^^^^^^^^^^^^^^
@@ -741,4 +771,4 @@ And all the contributors:
 @diditforlulz273 @liorcohen5 @ManifoldFR @mloo3 @SwamyDev @wmmc88 @megan-klaiber @thisray
 @tfederico @hn2 @LucasAlegre @AptX395 @zampanteymedio @JadenTravnik @decodyng @ardabbour @lorenz-h @mschweizer @lorepieri8 @vwxyzjn
 @ShangqunYu @PierreExeter @JacopoPan @ltbd78 @tom-doerr @Atlis @liusida @09tangriro @amy12xx @juancroldan @benblack769 @bstee615
-@c-rizz @skandermoalla @MihaiAnca13 @davidblom603 @ayeright
+@c-rizz @skandermoalla @MihaiAnca13 @davidblom603 @ayeright @cyprienc

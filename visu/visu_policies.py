@@ -98,7 +98,7 @@ def plot_2d_policy(policy, env, deterministic, plot=True, figname="2d_actor.pdf"
     """
     if env.observation_space.shape[0] != 2:
         raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
     x_max, y_max = env.observation_space.high
@@ -130,7 +130,7 @@ def plot_bernoulli_policy(policy, env, plot=True, figure_name="proba_actor.pdf",
     """
     if env.observation_space.shape[0] != 2:
         raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
     x_max, y_max = env.observation_space.high
@@ -164,7 +164,7 @@ def plot_nd_policy(policy, env, deterministic, plot=True, figname="nd_actor.pdf"
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high
@@ -200,7 +200,7 @@ def plot_cartpole_policy(policy, env, deterministic, plot=True, figname="cartpol
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 50
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high
@@ -237,7 +237,7 @@ def plot_pendulum_policy(policy, env, deterministic, plot=True, figname="pendulu
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high

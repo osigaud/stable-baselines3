@@ -31,12 +31,10 @@ class REINFORCE(BaseAlgorithm):
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: The learning rate, it can be a function
         of the current progress remaining (from 1 to 0)
-    :param n_steps: N of N-step return
     :param gamma: Discount factor
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
     :param ent_coef: Entropy coefficient for the loss calculation
-    :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -46,6 +44,18 @@ class REINFORCE(BaseAlgorithm):
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
+    :param gradient_name: Type of policy return to use when updating the actor.
+        One of "sum", "discount", "gae", "beta", "normalized sum", "normalized discounted", "n step"
+    :param n_steps: N of N-step return (horizon)
+    :param beta: Temperature when using the "beta" strategy (AWC style)
+    :param critic_estim_method: Method used to compute the critic target.
+        One of "mc", "td ot "gae"
+    :param n_critic_epochs: Number of epoch to train the critic before updating the actor.
+    :param critic_batch_size: Mini-batch size for each gradient update of the critic.
+        By default, it uses the full batch (``critic_batch_size=-1``)
+    :param buffer_class: Type of episodic buffer to use.
+    :param nb_rollouts: Number of episodes used to collect data before updating
+        the networks. It will overwrite the parameter in ``.learn()``
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
@@ -53,8 +63,6 @@ class REINFORCE(BaseAlgorithm):
         self,
         policy: Union[str, Type[REINFORCEPolicy]],
         env: Union[GymEnv, str],
-        gradient_name: str = "sum",
-        beta: float = 0.0,
         max_episode_steps: Optional[int] = None,
         policy_base: Type[REINFORCEPolicy] = REINFORCEPolicy,
         learning_rate: Union[float, Schedule] = 0.01,
@@ -64,17 +72,19 @@ class REINFORCE(BaseAlgorithm):
         device: Union[th.device, str] = "auto",
         create_eval_env: bool = False,
         seed: Optional[int] = None,
-        _init_setup_model: bool = True,
-        n_steps: int = 5,
         gamma: float = 0.99,
         gae_lambda: float = 0.98,
         ent_coef: float = 0.0,
-        vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
+        gradient_name: str = "sum",
+        n_steps: int = 5,
+        beta: float = 1.0,
         critic_estim_method: Optional[str] = "mc",
         n_critic_epochs: int = 25,
         critic_batch_size: int = -1,  # complete batch
         buffer_class: Type[EpisodicBuffer] = EpisodicBuffer,
+        nb_rollouts: int = 5,
+        _init_setup_model: bool = True,
     ):
         super(REINFORCE, self).__init__(
             policy,
@@ -100,7 +110,6 @@ class REINFORCE(BaseAlgorithm):
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.ent_coef = ent_coef
-        self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.episode_num = 0
         self.rollout_buffer = None
@@ -110,6 +119,7 @@ class REINFORCE(BaseAlgorithm):
         self.n_critic_epochs = n_critic_epochs
         self.critic_batch_size = critic_batch_size
         self.buffer_class = buffer_class
+        self.nb_rollouts = nb_rollouts
 
         if gradient_name == "gae":
             assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
@@ -193,6 +203,7 @@ class REINFORCE(BaseAlgorithm):
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 if expert_pol:
                     actions = continuous_mountain_car_expert_policy(rollout_buffer.episode_steps, add_noise=True)
+                    values = 0.0
                 else:
                     actions, log_probs = self.actor.forward(obs_tensor)
                     # Note(antonin): value computation is probably not needed anymore here
@@ -246,11 +257,11 @@ class REINFORCE(BaseAlgorithm):
         actions = rollout_data.actions
         action_loss = 1e20
         while action_loss > 0.1:
-            self_actions, _, _ = self.policy.forward(obs)
+            self_actions, _ = self.actor.forward(obs)
             action_loss = func.mse_loss(actions, self_actions)
-            self.policy.optimizer.zero_grad()
+            self.actor.optimizer.zero_grad()
             action_loss.sum().backward()
-            self.policy.optimizer.step()
+            self.actor.optimizer.step()
 
     def compute_policy_returns(self) -> None:
         """
@@ -266,7 +277,7 @@ class REINFORCE(BaseAlgorithm):
             self.rollout_buffer.get_discounted_sum_rewards()
         elif self.gradient_name == "normalized sum":
             self.rollout_buffer.get_normalized_sum()
-        elif self.gradient_name == "normalized discounted":
+        elif self.gradient_name == "normalized discount":
             self.rollout_buffer.get_normalized_discounted_rewards()
         elif self.gradient_name == "n step":
             self.rollout_buffer.get_n_step_return()
@@ -374,10 +385,9 @@ class REINFORCE(BaseAlgorithm):
         total_steps: int,
         callback: MaybeCallback = None,
         expert_pol: bool = False,
-    ) -> None:
+    ) -> bool:
 
-        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
-        assert collect_ok, "Collect rollout stopped unexpectedly"
+        continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol)
 
         self._update_current_progress_remaining(self.num_timesteps, total_steps)
         # Display training infos
@@ -391,7 +401,11 @@ class REINFORCE(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         if self.logger.name_to_value["time/iterations"] % self.log_interval == 0:
             self.logger.dump(step=self.num_timesteps)
+
+        if continue_training is False:
+            return continue_training
         self.train()
+        return True
 
     def collect_expert_rollout(
         self,
@@ -406,19 +420,18 @@ class REINFORCE(BaseAlgorithm):
     ) -> None:
 
         total_steps = nb_rollouts * self.max_episode_steps
-        total_steps, _ = self._setup_learn(
+        total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         self.init_buffer(nb_rollouts)
-        collect_ok = self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
-        assert collect_ok, "Collect rollout stopped unexpectedly"
+        self.collect_rollouts(self.env, callback, self.rollout_buffer, expert_pol=True)
         self.regress_policy()
 
     def learn(
         self,
         total_timesteps: Optional[int] = None,
         nb_epochs: Optional[int] = None,
-        nb_rollouts: int = 1,
+        nb_rollouts: Optional[int] = None,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         eval_env: Optional[GymEnv] = None,
@@ -440,6 +453,8 @@ class REINFORCE(BaseAlgorithm):
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
+        # Allow to overwrite the nb rollout parameter
+        nb_rollouts = nb_rollouts or self.nb_rollouts
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
         self.log_interval = log_interval
@@ -447,13 +462,16 @@ class REINFORCE(BaseAlgorithm):
         if total_timesteps is None:
             for i in range(nb_epochs):
                 self.logger.record("time/iterations", i, exclude="tensorboard")
-                self.learn_one_epoch(total_steps, callback)
+                continue_training = self.learn_one_epoch(total_steps, callback)
+                if continue_training is False:
+                    break
         else:
             i = 0
             while self.num_timesteps < total_timesteps:
                 i += 1
                 self.logger.record("time/iterations", i, exclude="tensorboard")
-                self.learn_one_epoch(total_steps, callback)
-
+                continue_training = self.learn_one_epoch(total_steps, callback)
+                if continue_training is False:
+                    break
         callback.on_training_end()
         return self

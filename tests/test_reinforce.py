@@ -11,7 +11,7 @@ from stable_baselines3 import REINFORCE
         "sum",
         "discount",
         "normalized sum",
-        "normalized discounted",
+        "normalized discount",
         "n step",
         "gae",
     ],
@@ -53,6 +53,24 @@ def test_critic(critic_estim_method):
         critic_estim_method=critic_estim_method,
     )
     model.learn(50, log_interval=2)
+
+
+def test_expert_mountaincar():
+    model = REINFORCE(
+        "MlpPolicy",
+        "MountainCarContinuous-v0",
+        gradient_name="discount",
+        seed=1,
+        verbose=1,
+        critic_estim_method="mc",
+        create_eval_env=True,
+    )
+    model.collect_expert_rollout(nb_rollouts=5)
+    model.learn(
+        nb_epochs=2,
+        nb_rollouts=2,
+        log_interval=1,
+    )
 
 
 # def test_debug():

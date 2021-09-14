@@ -47,7 +47,7 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
     if env.observation_space.shape[0] != 2:
         raise (ValueError("Observation space dimension {}, should be 2".format(env.observation_space.shape[0])))
 
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
     x_max, y_max = env.observation_space.high
@@ -84,7 +84,7 @@ def plot_nd_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high
@@ -122,7 +122,7 @@ def plot_qfunction_1d(model, env, plot=True, figname="qfunction_1D.pdf", foldern
     """
     if env.observation_space.shape[0] != 1:
         raise (ValueError("The observation space dimension is {}, should be 1".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     x_min = env.observation_space.low[0]
     x_max = env.observation_space.high[0]
@@ -164,7 +164,7 @@ def plot_qfunction_cont_act(
         raise (
             ValueError("The observation space dimension is {}, whereas it should be 2".format(env.observation_space.shape[0]))
         )
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     x_min, y_min = env.observation_space.low
     x_max, y_max = env.observation_space.high
@@ -197,7 +197,7 @@ def plot_pendulum_critic(model, env, plot=True, figname="pendulum_critic.pdf", s
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 200
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high
@@ -239,7 +239,7 @@ def plot_cartpole_critic(
     """
     if env.observation_space.shape[0] <= 2:
         raise (ValueError("Observation space dimension {}, should be > 2".format(env.observation_space.shape[0])))
-    definition = 50
+    definition = 100
     portrait = np.zeros((definition, definition))
     state_min = env.observation_space.low
     state_max = env.observation_space.high

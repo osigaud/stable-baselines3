@@ -2,7 +2,6 @@ import os
 
 import gym
 import my_gym  # Necessary to see CartPoleContinuous, though PyCharm does not understand this
-import rex_gym  # Necessary to see Rex environments, though PyCharm does not understand this
 from arguments import get_args
 from chrono import Chrono
 from visu.visu_critics import plot_2d_critic, plot_cartpole_critic, plot_nd_critic, plot_pendulum_critic
@@ -93,7 +92,7 @@ def test_reinforce() -> None:
         model = REINFORCE(
             "MlpPolicy",
             env,
-            grads[i],
+            gradient_name=grads[i],
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
@@ -159,7 +158,7 @@ def test_imitation_cmc() -> None:
         model = REINFORCE(
             "MlpPolicy",
             env,
-            grads[i],
+            gradient_name=grads[i],
             beta=args.beta,
             gamma=args.gamma,
             learning_rate=args.lr_actor,
@@ -207,7 +206,7 @@ def test_cem() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "RexWalk-v0"
+    args.env_name = "CartPole-v1"
     args.nb_rollouts = 8
     env = gym.make(args.env_name)
     # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
@@ -228,7 +227,6 @@ def test_cem() -> None:
     model = CEM(
         "MlpPolicy",
         args.env_name,
-        learning_rate=args.lr_actor,
         seed=1,
         verbose=1,
         policy_kwargs=policy_kwargs,
@@ -246,6 +244,6 @@ def test_cem() -> None:
 
 if __name__ == "__main__":
     # init_test_reinforce()
-    test_reinforce()
-    # test_imitation_cmc()
+    # test_reinforce()
+    test_imitation_cmc()
     # test_cem()
