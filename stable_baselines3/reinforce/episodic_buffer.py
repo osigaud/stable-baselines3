@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
@@ -109,18 +109,25 @@ class EpisodicBuffer(BaseBuffer):
             self.store_episode()
             self.episode_steps = 0
 
+    def get_all_indices(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Retrieve all samples valid indices, taking episode length
+        into account.
+        """
+        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
+        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths])
+        return all_episodes.astype(np.uint64), all_transitions.astype(np.uint64)
+
     def get_samples(self) -> EpisodicRolloutBufferSamples:
 
         total_steps = sum(self.episode_lengths)
-        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
-        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
-        all_episodes = all_episodes.astype(np.uint64)
+        all_indices = self.get_all_indices()
         # Retrieve all transition and flatten the arrays
         return EpisodicRolloutBufferSamples(
-            self.to_torch(self._buffer["observation"][all_episodes, all_transitions].reshape(total_steps, *self.obs_shape)),
-            self.to_torch(self._buffer["action"][all_episodes, all_transitions].reshape(total_steps, self.action_dim)),
-            self.to_torch(self.policy_returns[all_episodes, all_transitions].reshape(total_steps)),
-            self.to_torch(self.target_values[all_episodes, all_transitions].reshape(total_steps)),
+            self.to_torch(self._buffer["observation"][all_indices].reshape(total_steps, *self.obs_shape)),
+            self.to_torch(self._buffer["action"][all_indices].reshape(total_steps, self.action_dim)),
+            self.to_torch(self.policy_returns[all_indices].reshape(total_steps)),
+            self.to_torch(self.target_values[all_indices].reshape(total_steps)),
         )
 
     def _get_samples(
@@ -198,9 +205,7 @@ class EpisodicBuffer(BaseBuffer):
         """
         Normalize rewards of all samples of all episodes
         """
-        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
-        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
-        all_rewards = self.rewards[all_episodes.astype(np.uint64), all_transitions]
+        all_rewards = self.rewards[self.get_all_indices()]
         self.policy_returns = (self.policy_returns - all_rewards.mean()) / (all_rewards.std() + 1e-8)
 
     def get_normalized_sum(self) -> None:
@@ -208,17 +213,16 @@ class EpisodicBuffer(BaseBuffer):
         Normalize rewards of all samples of all episodes
         """
         self.get_sum_rewards()
-        self.policy_returns = (self.policy_returns - self.policy_returns.mean()) / (self.policy_returns.std() + 1e-8)
+        all_returns = self.policy_returns[self.get_all_indices()]
+        self.policy_returns = (self.policy_returns - all_returns.mean()) / (all_returns.std() + 1e-8)
 
     def get_normalized_discounted_rewards(self) -> None:
         """
         Apply a normalized and discounted sum of rewards to all samples of the episode
         """
         self.get_discounted_sum_rewards()
-        all_episodes = np.concatenate([np.ones(ep_len) * ep_idx for ep_idx, ep_len in enumerate(self.episode_lengths)])
-        all_transitions = np.concatenate([np.arange(ep_len) for ep_len in self.episode_lengths]).astype(np.uint64)
-        all_rewards = self.rewards[all_episodes.astype(np.uint64), all_transitions]
-        self.policy_returns = (self.policy_returns - all_rewards.mean()) / (all_rewards.std() + 1e-8)
+        all_returns = self.policy_returns[self.get_all_indices()]
+        self.policy_returns = (self.policy_returns - all_returns.mean()) / (all_returns.std() + 1e-8)
 
     def get_exponentiated_rewards(self, beta) -> None:
         """

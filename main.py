@@ -63,8 +63,8 @@ def test_reinforce() -> None:
     args.env_name = "CartPole-v1"
     # args.gradients = ["n step","baseline","gae"]
     # args.gradients = ["discount"]
-    # args.gradients = ["sum", "discount", "normalized sum", "normalized discounted"]
-    args.gradients = ["sum", "discount", "gae"]
+    # args.gradients = ["sum", "discount", "normalized sum", "normalized discount", "gae"]
+    args.gradients = ["normalized discount", "gae"]
     args.nb_rollouts = 25
     # When a critic estimation method is specified
     # it is automatically used as a baseline
@@ -244,6 +244,6 @@ def test_cem() -> None:
 
 if __name__ == "__main__":
     # init_test_reinforce()
-    # test_reinforce()
-    test_imitation_cmc()
+    test_reinforce()
+    # test_imitation_cmc()
     # test_cem()
