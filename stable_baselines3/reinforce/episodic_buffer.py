@@ -221,6 +221,8 @@ class EpisodicBuffer(BaseBuffer):
         Apply a normalized and discounted sum of rewards to all samples of the episode
         """
         self.get_discounted_sum_rewards()
+        # Note(antonin): shall we normalize with all discounted returns
+        # or with all rewards
         all_returns = self.policy_returns[self.get_all_indices()]
         self.policy_returns = (self.policy_returns - all_returns.mean()) / (all_returns.std() + 1e-8)
 
