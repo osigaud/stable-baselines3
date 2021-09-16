@@ -11,7 +11,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-
+from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 class CEM(BaseAlgorithm):
     """
@@ -44,6 +44,7 @@ class CEM(BaseAlgorithm):
         self,
         policy: Union[str, Type[CEMPolicy]],
         env: Union[GymEnv, str],
+        max_episode_steps: Optional[int] = None,
         pop_size: int = 10,
         elit_frac_size: float = 0.2,
         sigma: float = 0.2,
@@ -77,7 +78,7 @@ class CEM(BaseAlgorithm):
             ),
             support_multi_env=True,
         )
-
+        self.max_episode_steps = max_episode_steps
         self.pop_size = pop_size
         self.elit_frac_size = elit_frac_size
         self.elites_nb = int(self.elit_frac_size * self.pop_size)
@@ -95,6 +96,10 @@ class CEM(BaseAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
+
+        # Retrieve max episode step automatically
+        if self.max_episode_steps is None:
+            self.max_episode_steps = get_time_limit(self.env, max_episode_steps)
 
     def _setup_model(self) -> None:
         self.set_random_seed(self.seed)
@@ -192,9 +197,9 @@ class CEM(BaseAlgorithm):
         centroid = self.get_params(self.train_policy)
         self.init_var(centroid)
 
-        for iteration in range(1, nb_iterations + 1):
+        for iteration in range(nb_iterations):
             callback.on_rollout_start()
-            self.one_loop(iteration)
+            self.one_loop(iteration + 1)
 
             # Give access to local variables
             callback.update_locals(locals())
@@ -206,8 +211,7 @@ class CEM(BaseAlgorithm):
 
     def learn(
         self,
-        total_timesteps: int = 100,
-        nb_iterations: int = 100,
+        nb_epochs: int = 100,
         callback: MaybeCallback = None,
         log_interval: int = 100,
         tb_log_name: str = "run",
@@ -218,17 +222,17 @@ class CEM(BaseAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> "BaseAlgorithm":
 
-        # TODO(antonin): take total_timesteps into account for early stopping
-        total_steps = total_timesteps
+
+        total_steps = nb_epochs * self.max_episode_steps
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
-        nb_iterations = self.nb_iterations or nb_iterations
+
         callback.on_training_start(locals(), globals())
-        training_ok = self.train(nb_iterations, callback=callback)
-        # Can be stopped early with a callback
-        # if not training_ok:
-        #     raise NotImplementedError("Collect rollout stopped unexpectedly")
+
+        continue_training = self.train(nb_epochs, callback=callback)
+        if continue_training is False:
+            raise NotImplementedError("Learning stopped unexpectedly")
 
         callback.on_training_end()
         return self

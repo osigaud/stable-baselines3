@@ -206,11 +206,9 @@ def test_cem() -> None:
     # Create log dir
     log_dir = "data/save/"
     os.makedirs(log_dir, exist_ok=True)
-    args.env_name = "CartPole-v1"
+    env_name = "Pendulum-v0"
     args.nb_rollouts = 8
     env = gym.make(args.env_name)
-    # env_vec = make_vec_env(args.env_name, n_envs=10, seed=0, vec_env_cls=DummyVecEnv)
-    # env.render()
     file_name = "cem_" + args.env_name
     log_file_name = log_dir + file_name
     eval_callback = EvalCallback(
@@ -220,30 +218,31 @@ def test_cem() -> None:
         eval_freq=1,
         n_eval_episodes=2,
         deterministic=True,
-        render=True,
+        render=False,
     )
     policy_kwargs = dict(net_arch=[10, 10])
 
     model = CEM(
         "MlpPolicy",
-        args.env_name,
+        env_name,
         seed=1,
         verbose=1,
+        sigma=0.05,
         policy_kwargs=policy_kwargs,
         tensorboard_log=log_file_name,
     )
     if plot_policies:
-        plot_policy(model, env, args.env_name, "cem", final_string="pre")
+        plot_policy(model, env, env_name, "cem", final_string="pre")
 
-    model.learn(reset_num_timesteps=True, callback=eval_callback, log_interval=args.log_interval)
+    model.learn(reset_num_timesteps=True, nb_epochs=10, callback=eval_callback, log_interval=args.log_interval)
     if plot_policies:
-        plot_policy(model, env, args.env_name, "cem", final_string="post")
+        plot_policy(model, env, env_name, "cem", final_string="post")
 
     chrono.stop()
 
 
 if __name__ == "__main__":
     # init_test_reinforce()
-    test_reinforce()
+    # test_reinforce()
     # test_imitation_cmc()
-    # test_cem()
+    test_cem()

@@ -125,7 +125,7 @@ class REINFORCE(BaseAlgorithm):
             assert critic_estim_method is not None, "You must specify a critic estimation method when using GAE"
 
         # Retrieve max episode step automatically
-        if self.env is not None:
+        if self.max_episode_steps is None:
             self.max_episode_steps = get_time_limit(self.env, max_episode_steps)
 
         if _init_setup_model:
