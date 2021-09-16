@@ -13,6 +13,7 @@ from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePoli
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
+
 class CEM(BaseAlgorithm):
     """
     The Cross Entropy Method
@@ -221,7 +222,6 @@ class CEM(BaseAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> "BaseAlgorithm":
-
 
         total_steps = nb_epochs * self.max_episode_steps
         total_steps, callback = self._setup_learn(
