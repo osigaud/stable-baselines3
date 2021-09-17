@@ -29,7 +29,7 @@ class CEM(BaseAlgorithm):
     :param noise_multiplier: Noise decay. We add noise to the standard deviation
         to avoid early collapse.
     :param n_eval_episodes: Number of episodes to evaluate each individual.
-    :param nb_iterations: Number iterations to run the CEM algorithm,
+    :param nb_epochs: Number of iterations to run the CEM algorithm,
         this will overwrite the parameter of ``.learn()``
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
@@ -52,7 +52,7 @@ class CEM(BaseAlgorithm):
         sigma: float = 0.2,
         noise_multiplier: float = 0.999,
         n_eval_episodes: int = 5,
-        nb_iterations: Optional[int] = None,
+        nb_epochs: Optional[int] = None,
         policy_base: Type[BasePolicy] = CEMPolicy,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -86,7 +86,7 @@ class CEM(BaseAlgorithm):
         self.elites_nb = int(self.elit_frac_size * self.pop_size)
         self.n_eval_episodes = n_eval_episodes
         self.train_policy = None
-        self.nb_iterations = nb_iterations
+        self.nb_epochs = nb_epochs
         self.best_score = -np.inf
 
         self.sigma = sigma
@@ -122,10 +122,6 @@ class CEM(BaseAlgorithm):
         # Init the covariance matrix
         centroid = self.get_params(self.train_policy)
         self.init_covariance(centroid)
-
-    @staticmethod
-    def to_numpy(tensor):
-        return tensor.detach().numpy().flatten()
 
     def get_params(self, policy: CEMPolicy) -> np.ndarray:
         return policy.parameters_to_vector()  # note: also retrieves critic params...
@@ -242,11 +238,14 @@ class CEM(BaseAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> "BaseAlgorithm":
 
+        # nb_epochs can be overwritten by the parameter passed in the constructor
+        nb_epochs = nb_epochs or self.nb_epochs
+
         assert (
             total_timesteps is not None or nb_epochs is not None
         ), "You must specify either a total number of time steps or a number of epochs"
 
-        if total_timesteps is None:
+        if nb_epochs is not None:
             # Upper bound
             total_steps = nb_epochs * self.max_episode_steps * self.pop_size * self.env.num_envs * self.n_eval_episodes
         else:
