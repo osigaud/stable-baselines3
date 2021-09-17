@@ -49,7 +49,8 @@ class CEMPolicy(BasePolicy):
             if features_extractor_class == NatureCNN:
                 net_arch = []
             else:
-                net_arch = [64, 64]
+                # Small network otherwise sampling is slow
+                net_arch = [64]
 
         self.net_arch = net_arch
         self.features_extractor = self.make_features_extractor()

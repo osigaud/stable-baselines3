@@ -11,6 +11,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 
@@ -116,6 +117,10 @@ class CEM(BaseAlgorithm):
         if self.verbose > 0:
             print(f"policy dim: {self.policy_dim}")
 
+        # Init the covariance matrix
+        centroid = self.get_params(self.train_policy)
+        self.init_var(centroid)
+
     @staticmethod
     def to_numpy(tensor):
         return tensor.detach().numpy().flatten()
@@ -136,7 +141,9 @@ class CEM(BaseAlgorithm):
         self.noise = np.diag(np.ones(self.policy_dim) * self.sigma)
         self.var = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
 
-    def one_loop(self, n_iter: int) -> None:
+    def learn_one_epoch(self, callback: BaseCallback) -> bool:
+        callback.on_rollout_start()
+
         centroid = self.get_params(self.train_policy)
         self.update_noise()
         scores = np.zeros(self.pop_size)
@@ -154,24 +161,44 @@ class CEM(BaseAlgorithm):
             if scores[i] > self.best_score:
                 self.best_score = scores[i]
                 self.set_params(self.policy, weights[i])
+
+            # Mimic Monitor Wrapper
+            infos = [
+                {"episode": {"r": episode_reward, "l": episode_length}}
+                for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+            ]
+
+            self._update_info_buffer(infos)
+
             self.num_timesteps += sum(episode_lengths)
+            self._episode_num += len(episode_lengths)
             if self.verbose > 0:
-                print(f"indiv: {i} score {scores[i]:.2f}")
+                print(f"Indiv: {i + 1} score {scores[i]:.2f}")
 
         elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
         if self.verbose > 1:
             print("scores:", scores)
-        self.logger.record("train/n_updates", n_iter, exclude="tensorboard")
         self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", scores[-1])
+        self.logger.record("train/std", np.mean(np.sqrt(np.diagonal(self.var))))
+        self.logger.record("train/noise", np.mean(np.diagonal(self.noise)))
         self._dump_logs()
 
-        elites_weights = [weights[i] for i in elites_idxs]
+        # elites_weights = [weights[i] for i in elites_idxs]
+        elites_weights = weights[elites_idxs]
         # update the best weights
         centroid = np.array(elites_weights).mean(axis=0)
         self.var = np.cov(elites_weights, rowvar=False) + self.noise
         self.set_params(self.train_policy, centroid)
+
+        # Give access to local variables
+        callback.update_locals(locals())
+        if callback.on_step() is False:
+            return False
+
+        callback.on_rollout_end()
+        return True
 
     def _dump_logs(self) -> None:
         """
@@ -179,10 +206,10 @@ class CEM(BaseAlgorithm):
         """
         time_elapsed = time.time() - self.start_time
         fps = int(self.num_timesteps / (time_elapsed + 1e-8))
-        # self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
-        # if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-        #     self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-        #     self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
+        if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+            self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
         self.logger.record("time/fps", fps)
         self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
         self.logger.record("time/total timesteps", self.num_timesteps, exclude="tensorboard")
@@ -190,32 +217,13 @@ class CEM(BaseAlgorithm):
         # Pass the number of timesteps for tensorboard
         self.logger.dump(step=self.num_timesteps)
 
-    def train(self, nb_iterations: int, callback: BaseCallback) -> bool:
-        """
-        The main function to learn policies using the Cross Entropy Method
-        """
-        # Init the covariance matrix
-        centroid = self.get_params(self.train_policy)
-        self.init_var(centroid)
-
-        for iteration in range(nb_iterations):
-            callback.on_rollout_start()
-            self.one_loop(iteration + 1)
-
-            # Give access to local variables
-            callback.update_locals(locals())
-            if callback.on_step() is False:
-                return False
-
-            callback.on_rollout_end()
-        return True
-
     def learn(
         self,
-        nb_epochs: int = 100,
+        total_timesteps: Optional[int] = None,
+        nb_epochs: Optional[int] = None,
         callback: MaybeCallback = None,
         log_interval: int = 100,
-        tb_log_name: str = "run",
+        tb_log_name: str = "CEM",
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
         n_eval_episodes: int = 5,
@@ -223,16 +231,31 @@ class CEM(BaseAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> "BaseAlgorithm":
 
-        total_steps = nb_epochs * self.max_episode_steps
+        assert (
+            total_timesteps is not None or nb_epochs is not None
+        ), "You must specify either a total number of time steps or a number of epochs"
+
+        if total_timesteps is None:
+            # Upper bound
+            total_steps = nb_epochs * self.max_episode_steps * self.pop_size * self.env.num_envs * self.n_eval_episodes
+        else:
+            total_steps = total_timesteps
+            # No limit
+            nb_epochs = int(1e20)
+
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
         callback.on_training_start(locals(), globals())
 
-        continue_training = self.train(nb_epochs, callback=callback)
-        if continue_training is False:
-            raise NotImplementedError("Learning stopped unexpectedly")
+        epoch_idx = 0
+        while self.num_timesteps < total_steps and epoch_idx < nb_epochs:  # pytype: disable=unsupported-operands
+            epoch_idx += 1
+            self.logger.record("time/iterations", epoch_idx, exclude="tensorboard")
+            continue_training = self.learn_one_epoch(callback)
+            if continue_training is False:
+                break
 
         callback.on_training_end()
         return self

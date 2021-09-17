@@ -466,7 +466,7 @@ class REINFORCE(BaseAlgorithm):
         self.log_interval = log_interval
 
         epoch_idx = 0
-        while self.num_timesteps < total_steps and epoch_idx < nb_epochs:
+        while self.num_timesteps < total_steps and epoch_idx < nb_epochs:  # pytype: disable=unsupported-operands
             epoch_idx += 1
             self.logger.record("time/iterations", epoch_idx, exclude="tensorboard")
             continue_training = self.learn_one_epoch(total_steps, callback)
