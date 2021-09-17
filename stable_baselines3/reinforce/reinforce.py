@@ -446,32 +446,31 @@ class REINFORCE(BaseAlgorithm):
         assert (
             total_timesteps is not None or nb_epochs is not None
         ), "You must specify either a total number of time steps or a number of epochs"
+
         if total_timesteps is None:
-            total_steps = nb_rollouts * self.max_episode_steps
+            # Upper bound
+            total_steps = nb_epochs * nb_rollouts * self.max_episode_steps
         else:
             total_steps = total_timesteps
+            # No limit
+            nb_epochs = int(1e20)
+
         total_steps, callback = self._setup_learn(
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
         # Allow to overwrite the nb rollout parameter
         nb_rollouts = nb_rollouts or self.nb_rollouts
+
         self.init_buffer(nb_rollouts)
         callback.on_training_start(locals(), globals())
         self.log_interval = log_interval
 
-        if total_timesteps is None:
-            for i in range(nb_epochs):
-                self.logger.record("time/iterations", i, exclude="tensorboard")
-                continue_training = self.learn_one_epoch(total_steps, callback)
-                if continue_training is False:
-                    break
-        else:
-            i = 0
-            while self.num_timesteps < total_timesteps:
-                i += 1
-                self.logger.record("time/iterations", i, exclude="tensorboard")
-                continue_training = self.learn_one_epoch(total_steps, callback)
-                if continue_training is False:
-                    break
+        epoch_idx = 0
+        while self.num_timesteps < total_steps and epoch_idx < nb_epochs:
+            epoch_idx += 1
+            self.logger.record("time/iterations", epoch_idx, exclude="tensorboard")
+            continue_training = self.learn_one_epoch(total_steps, callback)
+            if continue_training is False:
+                break
         callback.on_training_end()
         return self
