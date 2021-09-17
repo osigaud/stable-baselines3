@@ -62,7 +62,7 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
                     # For A2C/PPO
-                    value = model.predict_values(obs)
+                    value = model.predict_values(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -219,7 +219,7 @@ def plot_pendulum_critic(model, env, plot=True, figname="pendulum_critic.pdf", s
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
                     # For A2C/PPO
-                    value = model.predict_values(obs)
+                    value = model.predict_values(obs_as_tensor(obs, model.device))
             portrait[definition - (1 + index_td), index_t] = value.item()
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
@@ -273,7 +273,7 @@ def plot_cartpole_critic(
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
                     # For A2C/PPO
-                    value = model.predict_values(obs)
+                    value = model.predict_values(obs_as_tensor(obs, model.device))
 
             portrait[definition - (1 + index_y), index_x] = value.item()
 
