@@ -181,11 +181,10 @@ class CEM(BaseAlgorithm):
             if self.verbose > 0:
                 print(f"Indiv: {i + 1} score {scores[i]:.2f}")
 
-        scores.sort()
         if self.verbose > 1:
             print("scores:", scores)
         self.logger.record("train/mean_score", np.mean(scores))
-        self.logger.record("train/best_score", scores[-1])
+        self.logger.record("train/best_score", sorted(scores)[-1])
         self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
         self.logger.record("train/noise", np.mean(np.diagonal(self.noise)))
         self._dump_logs()
