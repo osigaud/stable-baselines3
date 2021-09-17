@@ -91,9 +91,11 @@ class CEM(BaseAlgorithm):
 
         self.sigma = sigma
         self.noise = None
-        self.var = None
+        self.cov = None
+        # Random number generator to sample weights
+        # from the Gaussian distribution
         self.rng = None
-
+        self.policy_dim = None
         self.noise_multiplier = noise_multiplier
 
         if _init_setup_model:
@@ -119,7 +121,7 @@ class CEM(BaseAlgorithm):
 
         # Init the covariance matrix
         centroid = self.get_params(self.train_policy)
-        self.init_var(centroid)
+        self.init_covariance(centroid)
 
     @staticmethod
     def to_numpy(tensor):
@@ -134,12 +136,9 @@ class CEM(BaseAlgorithm):
     def update_noise(self) -> None:
         self.noise = self.noise * self.noise_multiplier
 
-    def make_random_indiv(self) -> np.ndarray:
-        return np.random.rand(self.policy.get_weights_dim())
-
-    def init_var(self, centroid) -> None:
+    def init_covariance(self, centroid: np.ndarray) -> None:
         self.noise = np.diag(np.ones(self.policy_dim) * self.sigma)
-        self.var = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
+        self.cov = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
 
     def learn_one_epoch(self, callback: BaseCallback) -> bool:
         callback.on_rollout_start()
@@ -147,15 +146,26 @@ class CEM(BaseAlgorithm):
         centroid = self.get_params(self.train_policy)
         self.update_noise()
         scores = np.zeros(self.pop_size)
-        weights = self.rng.multivariate_normal(centroid, self.var, self.pop_size)
+        weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
+
+        # Separable CEM, useful when self.policy_dim >> 100
+        # Use only diagonal of the covariance matrix
+        # param_noise = np.random.randn(self.pop_size, self.policy_dim)
+        # weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
+
         # Optional: Reset best at every iteration
         # self.best_score = -np.inf
 
         for i in range(self.pop_size):
-            self.set_params(self.train_policy, weights[i])  # TODO: rather use a policy built on the fly
+            # Evaluate individual
+            self.set_params(self.train_policy, weights[i])
             episode_rewards, episode_lengths = evaluate_policy(
-                self.train_policy, self.env, n_eval_episodes=self.n_eval_episodes, return_episode_rewards=True
+                self.train_policy,
+                self.env,
+                n_eval_episodes=self.n_eval_episodes,
+                return_episode_rewards=True,
             )
+
             scores[i] = np.mean(episode_rewards)
             # Save best params
             if scores[i] > self.best_score:
@@ -175,21 +185,22 @@ class CEM(BaseAlgorithm):
             if self.verbose > 0:
                 print(f"Indiv: {i + 1} score {scores[i]:.2f}")
 
-        elites_idxs = scores.argsort()[-self.elites_nb :]
         scores.sort()
         if self.verbose > 1:
             print("scores:", scores)
         self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", scores[-1])
-        self.logger.record("train/std", np.mean(np.sqrt(np.diagonal(self.var))))
+        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
         self.logger.record("train/noise", np.mean(np.diagonal(self.noise)))
         self._dump_logs()
 
-        # elites_weights = [weights[i] for i in elites_idxs]
+        # Keep only best individuals to compute the new centroid
+        elites_idxs = scores.argsort()[-self.elites_nb :]
         elites_weights = weights[elites_idxs]
-        # update the best weights
         centroid = np.array(elites_weights).mean(axis=0)
-        self.var = np.cov(elites_weights, rowvar=False) + self.noise
+
+        # Update covariance
+        self.cov = np.cov(elites_weights, rowvar=False) + self.noise
         self.set_params(self.train_policy, centroid)
 
         # Give access to local variables
