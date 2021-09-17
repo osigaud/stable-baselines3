@@ -149,9 +149,6 @@ class CEM(BaseAlgorithm):
         # param_noise = np.random.randn(self.pop_size, self.policy_dim)
         # weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
 
-        # Optional: Reset best at every iteration
-        # self.best_score = -np.inf
-
         for i in range(self.pop_size):
             # Evaluate individual
             self.set_params(self.train_policy, weights[i])
@@ -164,7 +161,8 @@ class CEM(BaseAlgorithm):
 
             scores[i] = np.mean(episode_rewards)
             # Save best params
-            if scores[i] > self.best_score:
+            # Update if it is same score but more recent policy
+            if scores[i] >= self.best_score:
                 self.best_score = scores[i]
                 self.set_params(self.policy, weights[i])
 
