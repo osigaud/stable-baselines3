@@ -88,6 +88,8 @@ class PPO(OnPolicyAlgorithm):
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
+        n_critic_epochs: int = 0,
+        critic_batch_size: int = 64,
         _init_setup_model: bool = True,
     ):
 
@@ -147,6 +149,8 @@ class PPO(OnPolicyAlgorithm):
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
         self.target_kl = target_kl
+        self.n_critic_epochs = n_critic_epochs
+        self.critic_batch_size = critic_batch_size
 
         if _init_setup_model:
             self._setup_model()
@@ -182,6 +186,17 @@ class PPO(OnPolicyAlgorithm):
 
         continue_training = True
 
+        # Train critic first
+        for _ in range(self.n_critic_epochs):
+            for rollout_data in self.rollout_buffer.get(self.critic_batch_size):
+                values = self.policy.predict_values(rollout_data.observations).flatten()
+                value_loss = F.mse_loss(rollout_data.returns, values)
+                self.policy.optimizer.zero_grad()
+                value_loss.backward()
+                # Clip grad norm
+                # th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
@@ -202,7 +217,7 @@ class PPO(OnPolicyAlgorithm):
                 values = values.flatten()
                 # Normalize advantage
                 advantages = rollout_data.advantages
-                advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+                # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)

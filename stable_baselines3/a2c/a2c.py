@@ -73,6 +73,8 @@ class A2C(OnPolicyAlgorithm):
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
+        n_critic_epochs: int = 0,
+        critic_batch_size: int = 64,
         _init_setup_model: bool = True,
     ):
 
@@ -111,6 +113,9 @@ class A2C(OnPolicyAlgorithm):
             self.policy_kwargs["optimizer_class"] = th.optim.RMSprop
             self.policy_kwargs["optimizer_kwargs"] = dict(alpha=0.99, eps=rms_prop_eps, weight_decay=0)
 
+        self.n_critic_epochs = n_critic_epochs
+        self.critic_batch_size = critic_batch_size
+
         if _init_setup_model:
             self._setup_model()
 
@@ -124,6 +129,17 @@ class A2C(OnPolicyAlgorithm):
 
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
+
+        # Train critic first
+        for _ in range(self.n_critic_epochs):
+            for rollout_data in self.rollout_buffer.get(self.critic_batch_size):
+                values = self.policy.predict_values(rollout_data.observations).flatten()
+                value_loss = F.mse_loss(rollout_data.returns, values)
+                self.policy.optimizer.zero_grad()
+                value_loss.backward()
+                # Clip grad norm
+                # th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
 
         # This will only loop once (get all data in one go)
         for rollout_data in self.rollout_buffer.get(batch_size=None):
