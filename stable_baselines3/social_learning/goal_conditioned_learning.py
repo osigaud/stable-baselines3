@@ -13,7 +13,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from visu.visu_trajectories import plot_trajectory
 from stable_baselines3 import HerReplayBuffer
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
-
+from stable_baselines3.common.env_checker import check_env
 
 log_dir = "data/save/"
 os.makedirs(log_dir, exist_ok=True)
@@ -22,6 +22,8 @@ policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]), optimizer_kwar
 
 env_name = "MountainCarContinuous-v0"
 env = CustomGoalEnv(env_name)
+check_env(env)
+
 env_vec = make_vec_env(env_name, n_envs=10, seed=0)
 
 file_name = env_name
