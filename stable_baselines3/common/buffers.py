@@ -490,7 +490,6 @@ class DictReplayBuffer(ReplayBuffer):
         handle_timeout_termination: bool = True,
     ):
         super(ReplayBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
-
         assert isinstance(self.obs_shape, dict), "DictReplayBuffer must be used with Dict obs space only"
         assert n_envs == 1, "Replay buffer only support single environment for now"
 

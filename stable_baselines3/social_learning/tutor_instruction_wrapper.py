@@ -11,6 +11,7 @@ class TutorInstructionWrapper(gym.Wrapper):
         # Call the parent constructor, so we can access self.env later
         super(TutorInstructionWrapper, self).__init__(env)
         self.current_obs = self.reset()
+        self.nb_total_instructions = 0
 
     def reset(self):
         """
@@ -22,10 +23,12 @@ class TutorInstructionWrapper(gym.Wrapper):
 
 
     def tutor_instruction_signal(self, action):
-        if 0 < self.current_obs[0] < 0.2 and self.current_obs[1] > 0:
-            return 1
-        elif -0.5 < self.current_obs[0] < 0 and self.current_obs[1] < 0:
-            return -1
+        if -1.0 < self.current_obs[0] < 0 and self.current_obs[1] > 0.01:
+            self.nb_total_instructions += 1
+            return [1.0]
+        elif -1.0 < self.current_obs[0] < -0.5 and self.current_obs[1] < -0.02:
+            self.nb_total_instructions += 1
+            return [-1.0]
         else:
             return action
 
