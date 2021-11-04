@@ -15,26 +15,30 @@ from stable_baselines3 import HerReplayBuffer
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from stable_baselines3.common.env_checker import check_env
 
+from stable_baselines3.common.monitor import Monitor
+
 log_dir = "data/save/"
 os.makedirs(log_dir, exist_ok=True)
 
 policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]), optimizer_kwargs=dict(eps=1e-5))
 
 env_name = "MountainCarContinuous-v0"
-env = CustomGoalEnv(env_name)
+env = CustomGoalEnv(env_name, True)
+env_eval = Monitor(CustomGoalEnv(env_name, False))
 check_env(env)
+check_env(env_eval)
 
-env_vec = make_vec_env(env_name, n_envs=10, seed=0)
+# env_vec = make_vec_env(env_name, n_envs=10, seed=0)
 
 file_name = env_name
 log_file_name = log_dir + file_name
 
 eval_callback = EvalCallback(
-            env_vec,
+            env_eval,
             best_model_save_path=log_dir + "bests/",
             log_path=log_dir,
             eval_freq=500,
-            n_eval_episodes=50,
+            n_eval_episodes=5,
             deterministic=True,
             render=False,
         )
@@ -63,11 +67,10 @@ model = TD3(
             tensorboard_log=log_file_name,
         )
 model.learn(
-            total_timesteps=20000,
+            total_timesteps=2000,
             callback=eval_callback,
             log_interval=20,
         )
 
-print("nb total instructions:", env.nb_total_instructions)
 rollout_data = model.rollout_buffer.get_samples()
 plot_trajectory(rollout_data, env, 1, plot=True)

@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import random
 
 from gym import GoalEnv, spaces
 
@@ -7,7 +8,7 @@ epsilon = 0.02
 
 class CustomGoalEnv(GoalEnv):
 
-    def __init__(self, env_name):
+    def __init__(self, env_name, random_goal=True):
         # Call the parent constructor, so we can access self.env later
         self.env = gym.make(env_name)
         super(CustomGoalEnv, self).__init__()
@@ -18,13 +19,17 @@ class CustomGoalEnv(GoalEnv):
                      "desired_goal": self.env.observation_space,
                  })
         self.action_space =  self.env.action_space
+        self.random_goal = random_goal
 
     def reset(self):
         """
         Reset the environment
         """
         # We draw a random desired goal
-        self.goal = self.env.reset()
+        # self.goal = self.env.reset()
+        pos = random.uniform(-1.2, 0.5)
+        vel = random.uniform(-0.02, 0.02)
+        self.goal = np.array([pos, vel])
         # And a random state
         o = self.env.reset()
         obs = {
@@ -36,11 +41,16 @@ class CustomGoalEnv(GoalEnv):
 
     def compute_reward(self, obs, goal, info):
         # Sparse goal-conditioned reward: we are rewarded if we are close enough to the goal
-        dist = np.linalg.norm(goal - obs)
-        if dist < epsilon:
-            return 1
+        if self.random_goal:
+            dist = np.linalg.norm(goal - obs)
+            if dist < epsilon:
+                print("reached random goal:", self.goal)
+                return 1
+            else:
+                return 0
         else:
-            return 0
+            reward = info
+            return reward
 
     def step(self, action):
         """
@@ -53,5 +63,12 @@ class CustomGoalEnv(GoalEnv):
             "achieved_goal": o,
             "desired_goal": self.goal,
         }
-        reward = self.compute_reward(o, self.goal, info)
+        info2 =  reward
+        if self.random_goal:
+            reward = self.compute_reward(o, self.goal, info2)
+            dist = np.linalg.norm(self.goal - o)
+            if dist < epsilon:
+                done = True
+            else:
+                done = False
         return obs, reward, done, info
