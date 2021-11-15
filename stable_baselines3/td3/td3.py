@@ -200,7 +200,6 @@ class TD3(OffPolicyAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> OffPolicyAlgorithm:
-
         return super(TD3, self).learn(
             total_timesteps=total_timesteps,
             callback=callback,

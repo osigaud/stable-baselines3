@@ -1,6 +1,7 @@
 import os
 
 import gym
+import numpy as np
 
 from chrono import Chrono  # To measure time in human readable format, use stop() to display time since chrono creation
 
@@ -16,6 +17,7 @@ from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from stable_baselines3.common.env_checker import check_env
 
 from stable_baselines3.common.monitor import Monitor
+from gym.wrappers import TimeLimit
 
 log_dir = "data/save/"
 os.makedirs(log_dir, exist_ok=True)
@@ -23,7 +25,8 @@ os.makedirs(log_dir, exist_ok=True)
 policy_kwargs = dict(net_arch=dict(pi=[100, 100], vf=[100, 100]), optimizer_kwargs=dict(eps=1e-5))
 
 env_name = "MountainCarContinuous-v0"
-env = CustomGoalEnv(env_name, True)
+env = TimeLimit(CustomGoalEnv(env_name, True), 1000)
+# env = CustomGoalEnv(env_name, True)
 env_eval = Monitor(CustomGoalEnv(env_name, False))
 check_env(env)
 check_env(env_eval)
@@ -66,11 +69,12 @@ model = TD3(
             policy_kwargs=policy_kwargs,
             tensorboard_log=log_file_name,
         )
+print("starting to learn")
 model.learn(
-            total_timesteps=2000,
+            total_timesteps=100000,
             callback=eval_callback,
-            log_interval=20,
+            log_interval=100,
         )
 
-rollout_data = model.rollout_buffer.get_samples()
-plot_trajectory(rollout_data, env, 1, plot=True)
+# rollout_data = model.replay_buffer._get_samples(np.array([0,model.replay_buffer.buffer_size]), env)
+# plot_trajectory(rollout_data, env, 1, plot=True)

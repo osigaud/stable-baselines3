@@ -334,7 +334,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> "OffPolicyAlgorithm":
-
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
             eval_env,
@@ -345,7 +344,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             reset_num_timesteps,
             tb_log_name,
         )
-
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_timesteps:
@@ -358,7 +356,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 replay_buffer=self.replay_buffer,
                 log_interval=log_interval,
             )
-
             if rollout.continue_training is False:
                 break
 
@@ -573,7 +570,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 self.num_timesteps += 1
                 episode_timesteps += 1
                 num_collected_steps += 1
-
                 # Give access to local variables
                 callback.update_locals(locals())
                 # Only stop training if return value is False, not when it is None.

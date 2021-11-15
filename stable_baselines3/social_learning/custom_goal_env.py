@@ -20,6 +20,7 @@ class CustomGoalEnv(GoalEnv):
                  })
         self.action_space =  self.env.action_space
         self.random_goal = random_goal
+        self._max_episode_steps = self.env._max_episode_steps
 
     def reset(self):
         """
