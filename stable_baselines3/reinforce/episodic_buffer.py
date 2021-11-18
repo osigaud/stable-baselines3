@@ -76,6 +76,7 @@ class EpisodicBuffer(BaseBuffer):
 
         # Get shape of observation and goal (usually the same)
         self.obs_shape = get_obs_shape(self.observation_space)
+        print(self.obs_shape)
 
         # episode length storage, needed for episodes which has less steps than the maximum length
         self.episode_lengths = np.zeros(self.nb_rollouts, dtype=np.int64)

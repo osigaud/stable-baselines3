@@ -250,8 +250,13 @@ class REINFORCE(BaseAlgorithm):
         callback.on_rollout_end()
         return True
 
-    def regress_policy(self):
-        """ """
+    def regress_policy(self) -> None:
+        """ 
+        Perform behavioral cloning
+        expert data from which to train your policy is stored into self.rollout_buffer
+        the trained policy is self.actor
+        ;return: nothing (side effect on the trained policy)
+        """
         rollout_data = self.rollout_buffer.get_samples()
         obs = rollout_data.observations
         actions = rollout_data.actions
