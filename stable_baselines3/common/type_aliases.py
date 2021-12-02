@@ -63,7 +63,6 @@ class DictReplayBufferSamples(ReplayBufferSamples):
 
 
 class RolloutReturn(NamedTuple):
-    episode_reward: float
     episode_timesteps: int
     n_episodes: int
     continue_training: bool

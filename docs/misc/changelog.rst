@@ -4,15 +4,20 @@ Changelog
 ==========
 
 
-Release 1.3.1a2 (WIP)
+Release 1.3.1a4 (WIP)
 ---------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Renamed ``mask`` argument of the ``predict()`` method to ``episode_start`` (used with RNN policies only)
+- local variables ``action``, ``done`` and ``reward`` were renamed to their plural form for offpolicy algorithms (``actions``, ``dones``, ``rewards``),
+  this may affect custom callbacks.
+- Removed ``episode_reward`` field from ``RolloutReturn()`` type
 
 New Features:
 ^^^^^^^^^^^^^
 - Added ``norm_obs_keys`` param for ``VecNormalize`` wrapper to configure which observation keys to normalize (@kachayev)
+- Added experimental support to train off-policy algorithms with multiple envs (note: ``HerReplayBuffer`` currently not supported)
 - Handle timeout termination properly for on-policy algorithms (when using ``TimeLimit``)
 
 
@@ -20,7 +25,7 @@ Bug Fixes:
 ^^^^^^^^^^
 - Fixed a bug where ``set_env()`` with ``VecNormalize`` would result in an error with off-policy algorithms (thanks @cleversonahum)
 - FPS calculation is now performed based on number of steps performed during last ``learn`` call, even when ``reset_num_timesteps`` is set to ``False`` (@kachayev)
-
+- Fixed evaluation script for recurrent policies (experimental feature in SB3 contrib)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -34,6 +39,9 @@ Documentation:
 - Add highway-env to projects page (@eleurent)
 - Add tactile-gym to projects page (@ac-93)
 - Fix indentation in the RL tips page (@cove9988)
+- Update GAE computation docstring
+- Add documentation on exporting to TFLite/Coral
+- Added JMLR paper and updated citation
 
 
 Release 1.3.0 (2021-10-23)
