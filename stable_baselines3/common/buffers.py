@@ -168,7 +168,7 @@ class ReplayBuffer(BaseBuffer):
         separately and treat the task as infinite horizon task.
         https://github.com/DLR-RM/stable-baselines3/issues/284
     """
-
+    
     def __init__(
         self,
         buffer_size: int,
@@ -305,13 +305,23 @@ class ReplayBuffer(BaseBuffer):
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
     def get_samples(self) -> ReplayBufferSamples:
-        data = (
-            self.observations.reshape(self.buffer_size, *self.obs_shape),
-            self.actions.reshape(self.buffer_size, *self.action_dim),
-            self.next_observations.reshape(self.buffer_size, *self.obs_shape),
-            self.dones,
-            self.rewards,
-        )
+        if self.full:
+            data = (
+                self.observations.reshape(self.buffer_size, *self.obs_shape),
+                self.actions.reshape(self.buffer_size, *self.action_dim),
+                self.next_observations.reshape(self.buffer_size, *self.obs_shape),
+                self.dones.reshape(self.buffer_size),
+                self.rewards.reshape(self.buffer_size),
+            )
+        else:
+            batch_inds = range(self.pos)
+            data = (
+                self.observations[batch_inds],
+                self.actions[batch_inds],
+                self.next_observations[batch_inds],
+                self.dones.reshape[batch_inds],
+                self.rewards.reshape[batch_inds],
+            )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
     
