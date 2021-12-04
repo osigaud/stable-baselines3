@@ -319,8 +319,8 @@ class ReplayBuffer(BaseBuffer):
                 self.observations[batch_inds, 0, :],
                 self.actions[batch_inds, 0, :],
                 self.next_observations[batch_inds, 0, :],
-                self.dones[batch_inds, 0, :],
-                self.rewards[batch_inds, 0, :],
+                self.dones[batch_inds, 0],
+                self.rewards[batch_inds, 0],
             )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
