@@ -11,6 +11,7 @@ def episode_to_traj(rollout_data):
     x = []
     y = []
     obs = rollout_data.observations
+    print(obs)
     # TODO : treat the case where the variables to plot are not the first two
     for o in obs:
         x.append(o[0].numpy())
