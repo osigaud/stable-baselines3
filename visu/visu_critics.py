@@ -61,8 +61,9 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                     # For REINFORCE
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
-                    # For A2C/PPO
-                    value = model.predict_values(obs_as_tensor(obs, model.device))
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -101,8 +102,13 @@ def plot_nd_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
             with th.no_grad():
-                # For REINFORCE
-                value = model.critic.forward(obs_as_tensor(obs, model.device))
+                if hasattr(model, "critic"):
+                    # For REINFORCE
+                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                else:
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -140,8 +146,13 @@ def plot_qfunction_1d(model, env, plot=True, figname="qfunction_1D.pdf", foldern
             # Be careful to fill the matrix in the right order
             obs = np.array([x])
             with th.no_grad():
-                # For REINFORCE
-                value = model.critic.forward(obs_as_tensor(obs, model.device))
+                if hasattr(model, "critic"):
+                    # For REINFORCE
+                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                else:
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -180,8 +191,13 @@ def plot_qfunction_cont_act(
         for index_y, y in enumerate(np.linspace(y_min, y_max, num=definition)):
             obs = np.array([[x, y]])
             with th.no_grad():
-                # For REINFORCE
-                value = model.critic.forward(obs_as_tensor(obs, model.device))
+                if hasattr(model, "critic"):
+                    # For REINFORCE
+                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                else:
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
@@ -218,8 +234,9 @@ def plot_pendulum_critic(model, env, plot=True, figname="pendulum_critic.pdf", s
                     # For REINFORCE
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
-                    # For A2C/PPO
-                    value = model.predict_values(obs_as_tensor(obs, model.device))
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_td), index_t] = value.item()
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[-180, 180, state_min[2], state_max[2]], aspect="auto")
@@ -272,8 +289,9 @@ def plot_cartpole_critic(
                     # For REINFORCE
                     value = model.critic.forward(obs_as_tensor(obs, model.device))
                 else:
-                    # For A2C/PPO
-                    value = model.predict_values(obs_as_tensor(obs, model.device))
+                    # For A2C/PPO/DDPG
+                    action = model.forward(obs_as_tensor(obs, model.device))
+                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
 
             portrait[definition - (1 + index_y), index_x] = value.item()
 
