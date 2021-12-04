@@ -307,8 +307,8 @@ class ReplayBuffer(BaseBuffer):
     def get_samples(self) -> ReplayBufferSamples:
         data = (
             self.observations.reshape(self.buffer_size, *self.obs_shape),
-            self.actions,
-            self.next_observations,
+            self.actions.reshape(self.buffer_size, *self.action_dim),
+            self.next_observations.reshape(self.buffer_size, *self.obs_shape),
             self.dones,
             self.rewards,
         )
