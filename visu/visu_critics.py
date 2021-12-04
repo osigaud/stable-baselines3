@@ -65,6 +65,8 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                         action = model.forward(obs_as_tensor(obs, model.device))
                         value = model.critic.forward(obs_as_tensor(obs, model.device), action)
                     else:
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
                         print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
