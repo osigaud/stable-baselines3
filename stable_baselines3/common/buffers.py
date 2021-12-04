@@ -316,11 +316,11 @@ class ReplayBuffer(BaseBuffer):
         else:
             batch_inds = range(self.pos)
             data = (
-                self.observations[batch_inds],
-                self.actions[batch_inds],
-                self.next_observations[batch_inds],
-                self.dones[batch_inds],
-                self.rewards[batch_inds],
+                self.observations[batch_inds].reshape(self.pos, *self.obs_shape),
+                self.actions[batch_inds].reshape(self.pos, *self.action_dim),
+                self.next_observations[batch_inds].reshape(self.pos, *self.obs_shape),
+                self.dones[batch_inds].reshape(self.pos),
+                self.rewards[batch_inds].reshape(self.pos),
             )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
