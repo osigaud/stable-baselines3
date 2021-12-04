@@ -59,7 +59,13 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
             with th.no_grad():
                 if hasattr(model, "critic"):
                     # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    if isinstance(model, REINFORCE):
+                        value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    elif isinstance(model, DDPG):
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                    else:
+                        print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
                     action = model.forward(obs_as_tensor(obs, model.device))
@@ -101,15 +107,21 @@ def plot_nd_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
             for _ in range(2, len(state_min)):
                 z = random.random() - 0.5
                 obs = np.append(obs, z)
-            with th.no_grad():
-                if hasattr(model, "critic"):
-                    # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
-                else:
-                    # For A2C/PPO/DDPG
-                    action = model.forward(obs_as_tensor(obs, model.device))
-                    value = model.predict_values(obs_as_tensor(obs, model.device), action)
-            portrait[definition - (1 + index_y), index_x] = value.item()
+                with th.no_grad():
+                    if hasattr(model, "critic"):
+                        # For REINFORCE
+                        if isinstance(model, REINFORCE):
+                            value = model.critic.forward(obs_as_tensor(obs, model.device))
+                        elif isinstance(model, DDPG):
+                            action = model.forward(obs_as_tensor(obs, model.device))
+                            value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                        else:
+                            print("visu critic: algo not covered")
+                    else:
+                        # For A2C/PPO/DDPG
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.predict_values(obs_as_tensor(obs, model.device), action)
+                portrait[definition - (1 + index_y), index_x] = value.item()
 
     plt.figure(figsize=(10, 10))
     plt.imshow(portrait, cmap="inferno", extent=[state_min[0], state_max[0], state_min[1], state_max[1]], aspect="auto")
@@ -148,7 +160,13 @@ def plot_qfunction_1d(model, env, plot=True, figname="qfunction_1D.pdf", foldern
             with th.no_grad():
                 if hasattr(model, "critic"):
                     # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    if isinstance(model, REINFORCE):
+                        value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    elif isinstance(model, DDPG):
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                    else:
+                        print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
                     action = model.forward(obs_as_tensor(obs, model.device))
@@ -193,7 +211,13 @@ def plot_qfunction_cont_act(
             with th.no_grad():
                 if hasattr(model, "critic"):
                     # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    if isinstance(model, REINFORCE):
+                        value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    elif isinstance(model, DDPG):
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                    else:
+                        print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
                     action = model.forward(obs_as_tensor(obs, model.device))
@@ -232,7 +256,13 @@ def plot_pendulum_critic(model, env, plot=True, figname="pendulum_critic.pdf", s
             with th.no_grad():
                 if hasattr(model, "critic"):
                     # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    if isinstance(model, REINFORCE):
+                        value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    elif isinstance(model, DDPG):
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                    else:
+                        print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
                     action = model.forward(obs_as_tensor(obs, model.device))
@@ -287,7 +317,13 @@ def plot_cartpole_critic(
             with th.no_grad():
                 if hasattr(model, "critic"):
                     # For REINFORCE
-                    value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    if isinstance(model, REINFORCE):
+                        value = model.critic.forward(obs_as_tensor(obs, model.device))
+                    elif isinstance(model, DDPG):
+                        action = model.forward(obs_as_tensor(obs, model.device))
+                        value = model.critic.forward(obs_as_tensor(obs, model.device), action)
+                    else:
+                        print("visu critic: algo not covered")
                 else:
                     # For A2C/PPO/DDPG
                     action = model.forward(obs_as_tensor(obs, model.device))
