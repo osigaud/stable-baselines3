@@ -306,7 +306,7 @@ class ReplayBuffer(BaseBuffer):
 
     def get_samples(self) -> ReplayBufferSamples:
         data = (
-            self.observations,
+            self.observations.flatten(),
             self.actions,
             self.next_observations,
             self.dones,
