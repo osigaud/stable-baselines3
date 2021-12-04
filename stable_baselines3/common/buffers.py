@@ -304,7 +304,19 @@ class ReplayBuffer(BaseBuffer):
         )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
+    def get_samples(self) -> ReplayBufferSamples:
+        data = (
+            self.observations,
+            self.actions,
+            self.next_observations,
+            # Only use dones that are not due to timeouts
+            # deactivated by default (timeouts is initialized as an array of False)
+            self.dones,
+            self.rewards,
+        )
+        return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
+    
 class RolloutBuffer(BaseBuffer):
     """
     Rollout buffer used in on-policy algorithms like A2C/PPO.
