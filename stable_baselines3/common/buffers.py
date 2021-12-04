@@ -309,8 +309,6 @@ class ReplayBuffer(BaseBuffer):
             self.observations,
             self.actions,
             self.next_observations,
-            # Only use dones that are not due to timeouts
-            # deactivated by default (timeouts is initialized as an array of False)
             self.dones,
             self.rewards,
         )
