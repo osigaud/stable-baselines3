@@ -182,18 +182,18 @@ class CEM(BaseAlgorithm):
         
         weights, scores = self.create_next_gen(centroid)
 
-            # Mimic Monitor Wrapper
-            infos = [
-                {"episode": {"r": episode_reward, "l": episode_length}}
-                for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-            ]
+        # Mimic Monitor Wrapper
+        infos = [
+            {"episode": {"r": episode_reward, "l": episode_length}}
+            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+        ]
 
-            self._update_info_buffer(infos)
+        self._update_info_buffer(infos)
 
-            self.num_timesteps += sum(episode_lengths)
-            self._episode_num += len(episode_lengths)
-            if self.verbose > 0:
-                print(f"Indiv: {i + 1} score {scores[i]:.2f}")
+        self.num_timesteps += sum(episode_lengths)
+        self._episode_num += len(episode_lengths)
+        if self.verbose > 0:
+            print(f"Indiv: {i + 1} score {scores[i]:.2f}")
 
         self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", sorted(scores)[-1])
