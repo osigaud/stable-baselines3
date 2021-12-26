@@ -137,7 +137,7 @@ class CEM(BaseAlgorithm):
         self.sigma = self.sigma * self.noise_multiplier
         self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
 
-    def create_next_gen(centroid: np.ndarray):
+    def create_next_gen(self, centroid: np.ndarray):
         # The scores are initialized
         scores = np.zeros(pop_size)
 
