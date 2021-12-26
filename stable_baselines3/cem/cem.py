@@ -183,7 +183,7 @@ class CEM(BaseAlgorithm):
 
         return weights, scores
 
-    def udpate_centroid(weights, scores):
+    def update_centroid(self, weights, scores):
         # Keep only best individuals to compute the new centroid
         elites_idxs = scores.argsort()[-elites_nb :]
         elites_weights = weights[elites_idxs]
