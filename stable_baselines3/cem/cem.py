@@ -162,6 +162,25 @@ class CEM(BaseAlgorithm):
                 self.best_score = scores[i]
                 self.set_params(self.policy, weights[i])
 
+            # Mimic Monitor Wrapper
+            infos = [
+                {"episode": {"r": episode_reward, "l": episode_length}}
+                for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+            ]
+
+            self._update_info_buffer(infos)
+
+            self.num_timesteps += sum(episode_lengths)
+            self._episode_num += len(episode_lengths)
+            if self.verbose > 0:
+                print(f"Indiv: {i + 1} score {scores[i]:.2f}")
+
+        self.logger.record("train/mean_score", np.mean(scores))
+        self.logger.record("train/best_score", sorted(scores)[-1])
+        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
+        self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
+        self._dump_logs()
+
         return weights, scores
 
     def udpate_centroid(weights, scores):
@@ -171,7 +190,6 @@ class CEM(BaseAlgorithm):
 
         # The new centroid is the barycenter of the elite individuals
         centroid = np.array(elites_weights).mean(axis=0)
-
         return centroid
 
     def learn_one_epoch(self, callback: BaseCallback) -> bool:
@@ -182,28 +200,6 @@ class CEM(BaseAlgorithm):
         
         weights, scores = self.create_next_gen(centroid)
 
-        # Mimic Monitor Wrapper
-        infos = [
-            {"episode": {"r": episode_reward, "l": episode_length}}
-            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-        ]
-
-        self._update_info_buffer(infos)
-
-        self.num_timesteps += sum(episode_lengths)
-        self._episode_num += len(episode_lengths)
-        if self.verbose > 0:
-            print(f"Indiv: {i + 1} score {scores[i]:.2f}")
-
-        self.logger.record("train/mean_score", np.mean(scores))
-        self.logger.record("train/best_score", sorted(scores)[-1])
-        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
-        self.logger.record("train/noise", np.mean(np.diagonal(self.noise)))
-        self._dump_logs()
-
-        # Keep only best individuals to compute the new centroid
-        elites_idxs = scores.argsort()[-self.elites_nb :]
-        elites_weights = weights[elites_idxs]
         centroid = self.update_centroid(weights, scores)
 
         # Update covariance
