@@ -183,13 +183,16 @@ class CEM(BaseAlgorithm):
 
         return weights, scores
 
-    def update_centroid(self, weights, scores):
+    def update_centroid_and_cov(self, weights, scores):
         # Keep only best individuals to compute the new centroid
         elites_idxs = scores.argsort()[-self.elites_nb :]
         elites_weights = weights[elites_idxs]
 
         # The new centroid is the barycenter of the elite individuals
         centroid = np.array(elites_weights).mean(axis=0)
+        # Update covariance
+        self.cov = np.cov(elites_weights, rowvar=False) + self.noise_matrix
+
         return centroid
 
     def learn_one_epoch(self, callback: BaseCallback) -> bool:
@@ -200,10 +203,8 @@ class CEM(BaseAlgorithm):
         
         weights, scores = self.create_next_gen(centroid)
 
-        centroid = self.update_centroid(weights, scores)
+        centroid = self.update_centroid_and_cov(weights, scores)
 
-        # Update covariance
-        self.cov = np.cov(elites_weights, rowvar=False) + self.noise_matrix
         self.set_params(self.train_policy, centroid)
 
         # Give access to local variables
