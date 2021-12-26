@@ -185,7 +185,7 @@ class CEM(BaseAlgorithm):
 
     def update_centroid(self, weights, scores):
         # Keep only best individuals to compute the new centroid
-        elites_idxs = scores.argsort()[-elites_nb :]
+        elites_idxs = scores.argsort()[-self.elites_nb :]
         elites_weights = weights[elites_idxs]
 
         # The new centroid is the barycenter of the elite individuals
