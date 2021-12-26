@@ -139,7 +139,7 @@ class CEM(BaseAlgorithm):
 
     def create_next_gen(self, centroid: np.ndarray):
         # The scores are initialized
-        scores = np.zeros(pop_size)
+        scores = np.zeros(self.pop_size)
 
         # The params of policies at iteration t+1 are drawn according to a multivariate 
         # Gaussian whose center is centroid and whose shaoe is defined by cov
