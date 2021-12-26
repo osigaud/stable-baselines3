@@ -90,7 +90,7 @@ class CEM(BaseAlgorithm):
         self.best_score = -np.inf
 
         self.sigma = sigma
-        self.noise = None
+        self.noise_matrix = None
         self.cov = None
         # Random number generator to sample weights
         # from the Gaussian distribution
@@ -129,26 +129,22 @@ class CEM(BaseAlgorithm):
     def set_params(self, policy: CEMPolicy, indiv: np.ndarray) -> None:
         policy.load_from_vector(indiv.copy())
 
-    def update_noise(self) -> None:
-        self.noise = self.noise * self.noise_multiplier
-
     def init_covariance(self, centroid: np.ndarray) -> None:
-        self.noise = np.diag(np.ones(self.policy_dim) * self.sigma)
-        self.cov = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise
+        self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
+        self.cov = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise_matrix
 
-    def learn_one_epoch(self, callback: BaseCallback) -> bool:
-        callback.on_rollout_start()
+    def update_noise_matrix(self) -> None:
+        self.sigma = self.sigma * self.noise_multiplier
+        self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
 
-        centroid = self.get_params(self.train_policy)
-        self.update_noise()
-        scores = np.zeros(self.pop_size)
+    def create_next_gen(centroid: np.ndarray):
+        # The scores are initialized
+        scores = np.zeros(pop_size)
+
+        # The params of policies at iteration t+1 are drawn according to a multivariate 
+        # Gaussian whose center is centroid and whose shaoe is defined by cov
         weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
-
-        # Separable CEM, useful when self.policy_dim >> 100
-        # Use only diagonal of the covariance matrix
-        # param_noise = np.random.randn(self.pop_size, self.policy_dim)
-        # weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
-
+        
         for i in range(self.pop_size):
             # Evaluate individual
             self.set_params(self.train_policy, weights[i])
@@ -165,6 +161,26 @@ class CEM(BaseAlgorithm):
             if scores[i] >= self.best_score:
                 self.best_score = scores[i]
                 self.set_params(self.policy, weights[i])
+
+        return weights, scores
+
+    def udpate_centroid(weights, scores):
+        # Keep only best individuals to compute the new centroid
+        elites_idxs = scores.argsort()[-elites_nb :]
+        elites_weights = weights[elites_idxs]
+
+        # The new centroid is the barycenter of the elite individuals
+        centroid = np.array(elites_weights).mean(axis=0)
+
+        return centroid
+
+    def learn_one_epoch(self, callback: BaseCallback) -> bool:
+        callback.on_rollout_start()
+
+        centroid = self.get_params(self.train_policy)
+        self.update_noise_matrix()
+        
+        weights, scores = self.create_next_gen(centroid)
 
             # Mimic Monitor Wrapper
             infos = [
@@ -188,10 +204,10 @@ class CEM(BaseAlgorithm):
         # Keep only best individuals to compute the new centroid
         elites_idxs = scores.argsort()[-self.elites_nb :]
         elites_weights = weights[elites_idxs]
-        centroid = np.array(elites_weights).mean(axis=0)
+        centroid = self.update_centroid(weights, scores)
 
         # Update covariance
-        self.cov = np.cov(elites_weights, rowvar=False) + self.noise
+        self.cov = np.cov(elites_weights, rowvar=False) + self.noise_matrix
         self.set_params(self.train_policy, centroid)
 
         # Give access to local variables
