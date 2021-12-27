@@ -142,7 +142,7 @@ class CEM(BaseAlgorithm):
         scores = np.zeros(self.pop_size)
 
         # The params of policies at iteration t+1 are drawn according to a multivariate 
-        # Gaussian whose center is centroid and whose shaoe is defined by cov
+        # Gaussian whose center is centroid and whose shape is defined by cov
         weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
         
         for i in range(self.pop_size):
