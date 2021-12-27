@@ -141,10 +141,10 @@ class CEM(BaseAlgorithm):
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
-        # The params of policies at iteration t+1 are drawn according to a multivariate 
+        # The params of policies at iteration t+1 are drawn according to a multivariate
         # Gaussian whose center is centroid and whose shape is defined by cov
         weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
-        
+
         for i in range(self.pop_size):
             # Evaluate individual
             self.set_params(self.train_policy, weights[i])
@@ -200,7 +200,7 @@ class CEM(BaseAlgorithm):
 
         centroid = self.get_params(self.train_policy)
         self.update_noise_matrix()
-        
+
         weights, scores = self.create_next_gen(centroid)
 
         centroid = self.update_centroid_and_cov(weights, scores)

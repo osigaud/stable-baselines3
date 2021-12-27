@@ -1,11 +1,12 @@
 from stable_baselines3.common.callbacks import BaseCallback
 
+
 class FillBufferCallback(BaseCallback):
     """
-       A custom callback to fill an episodic buffer during training
+    A custom callback to fill an episodic buffer during training
 
-       :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
-       """
+    :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
+    """
 
     def __init__(self, model, env, buffer, verbose=0):
         super(CustomCallback, self).__init__(verbose)

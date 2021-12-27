@@ -17,7 +17,7 @@ class TutorFeedbackWrapper(gym.Wrapper):
         if reward > 0.0:
             return reward
         if obs[1] < -0.01 and action[0] < 0:
-            print ("good left : ", obs[0], ":", obs[1], ":", action[0])
+            print("good left : ", obs[0], ":", obs[1], ":", action[0])
             self.nb_total_feedback += 1
             return abs(obs[1])
         elif -1.2 < obs[0] < -0.5 and obs[1] > 0.01 and action[0] > 0.5:
