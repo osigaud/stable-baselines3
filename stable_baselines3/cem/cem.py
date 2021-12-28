@@ -152,8 +152,7 @@ class CEM(BaseAlgorithm):
         self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
         self._dump_logs()
 
-    def create_next_gen(self, centroid: np.ndarray)
-    -> Union[np.ndarray, np.ndarray]:
+    def create_next_gen(self, centroid: np.ndarray) -> Union[np.ndarray, np.ndarray]:
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
