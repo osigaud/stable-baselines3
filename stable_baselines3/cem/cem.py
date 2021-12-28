@@ -59,6 +59,7 @@ class CEM(BaseAlgorithm):
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
+        diag_cov: bool = False,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
@@ -88,6 +89,7 @@ class CEM(BaseAlgorithm):
         self.train_policy = None
         self.nb_epochs = nb_epochs
         self.best_score = -np.inf
+        self.diag_cov = diag_cov
 
         self.sigma = sigma
         self.noise_matrix = None
@@ -137,16 +139,35 @@ class CEM(BaseAlgorithm):
         self.sigma = self.sigma * self.noise_multiplier
         self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
 
-    def create_next_gen(self, centroid: np.ndarray):
+    def update_best_policy(self, score, weights) -> None:
+        # Update if it is same score but more recent policy
+        if score >= self.best_score:
+           self.best_score = score
+           self.set_params(self.policy, weights)
+
+    def log_scores(self, scores) -> None:
+        self.logger.record("train/mean_score", np.mean(scores))
+        self.logger.record("train/best_score", sorted(scores)[-1])
+        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
+        self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
+        self._dump_logs()
+
+    def create_next_gen(self, centroid: np.ndarray) -> np.ndarray, np.ndarray:
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
-        # The params of policies at iteration t+1 are drawn according to a multivariate 
-        # Gaussian whose center is centroid and whose shape is defined by cov
-        weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
+        if self.diag_cov:
+            # Separable CEM, useful when self.policy_dim >> 100
+            # Use only diagonal of the covariance matrix
+            param_noise = np.random.randn(self.pop_size, self.policy_dim)
+            weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
+        else:
+            # The params of policies at iteration t+1 are drawn according to a multivariate 
+            # Gaussian whose center is centroid and whose shape is defined by cov
+            weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
         
         for i in range(self.pop_size):
-            # Evaluate individual
+            # Evaluate each individual
             self.set_params(self.train_policy, weights[i])
             episode_rewards, episode_lengths = evaluate_policy(
                 self.train_policy,
@@ -156,12 +177,10 @@ class CEM(BaseAlgorithm):
             )
 
             scores[i] = np.mean(episode_rewards)
+            
             # Save best params
-            # Update if it is same score but more recent policy
-            if scores[i] >= self.best_score:
-                self.best_score = scores[i]
-                self.set_params(self.policy, weights[i])
-
+            self.update_best_policy(scores[i], weights[i])
+                                    
             # Mimic Monitor Wrapper
             infos = [
                 {"episode": {"r": episode_reward, "l": episode_length}}
@@ -170,17 +189,16 @@ class CEM(BaseAlgorithm):
 
             self._update_info_buffer(infos)
 
+            # Update the time steps and episode counters
             self.num_timesteps += sum(episode_lengths)
             self._episode_num += len(episode_lengths)
+
+            # Print the scores of the individual
             if self.verbose > 0:
                 print(f"Indiv: {i + 1} score {scores[i]:.2f}")
 
-        self.logger.record("train/mean_score", np.mean(scores))
-        self.logger.record("train/best_score", sorted(scores)[-1])
-        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
-        self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
-        self._dump_logs()
-
+        # Log for monitoring
+        self.log_scores(scores)
         return weights, scores
 
     def update_centroid_and_cov(self, weights, scores):
