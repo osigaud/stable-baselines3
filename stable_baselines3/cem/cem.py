@@ -218,7 +218,7 @@ class CEM(BaseAlgorithm):
 
         centroid = self.get_params(self.train_policy)
         self.update_noise_matrix()
-        
+
         weights, scores = self.create_next_gen(centroid)
 
         centroid = self.update_centroid_and_cov(weights, scores)

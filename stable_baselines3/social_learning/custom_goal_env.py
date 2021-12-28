@@ -1,24 +1,25 @@
-import gym
-import numpy as np
 import random
 
+import gym
+import numpy as np
 from gym import GoalEnv, spaces
 
 epsilon = 0.02
 
-class CustomGoalEnv(GoalEnv):
 
+class CustomGoalEnv(GoalEnv):
     def __init__(self, env_name, random_goal=True):
         # Call the parent constructor, so we can access self.env later
         self.env = gym.make(env_name)
         super(CustomGoalEnv, self).__init__()
         self.observation_space = spaces.Dict(
-                 {
-                     "observation": self.env.observation_space,
-                     "achieved_goal": self.env.observation_space,
-                     "desired_goal": self.env.observation_space,
-                 })
-        self.action_space =  self.env.action_space
+            {
+                "observation": self.env.observation_space,
+                "achieved_goal": self.env.observation_space,
+                "desired_goal": self.env.observation_space,
+            }
+        )
+        self.action_space = self.env.action_space
         self.random_goal = random_goal
         self._max_episode_steps = self.env._max_episode_steps
 
@@ -34,10 +35,10 @@ class CustomGoalEnv(GoalEnv):
         # And a random state
         o = self.env.reset()
         obs = {
-                    "observation": o,
-                    "achieved_goal": o,
-                    "desired_goal": self.goal,
-                }
+            "observation": o,
+            "achieved_goal": o,
+            "desired_goal": self.goal,
+        }
         return obs
 
     def compute_reward(self, obs, goal, info):
@@ -64,7 +65,7 @@ class CustomGoalEnv(GoalEnv):
             "achieved_goal": o,
             "desired_goal": self.goal,
         }
-        info2 =  reward
+        info2 = reward
         if self.random_goal:
             reward = self.compute_reward(o, self.goal, info2)
             dist = np.linalg.norm(self.goal - o)

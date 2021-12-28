@@ -168,7 +168,7 @@ class ReplayBuffer(BaseBuffer):
         separately and treat the task as infinite horizon task.
         https://github.com/DLR-RM/stable-baselines3/issues/284
     """
-    
+
     def __init__(
         self,
         buffer_size: int,
@@ -324,7 +324,7 @@ class ReplayBuffer(BaseBuffer):
             )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
 
-    
+
 class RolloutBuffer(BaseBuffer):
     """
     Rollout buffer used in on-policy algorithms like A2C/PPO.

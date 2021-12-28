@@ -1,5 +1,6 @@
 import gym
 
+
 class TutorInstructionWrapper(gym.Wrapper):
     """
     :param env: (gym.Env) Gym environment that will be wrapped
@@ -20,7 +21,6 @@ class TutorInstructionWrapper(gym.Wrapper):
         obs = self.env.reset()
         self.current_obs = obs
         return obs
-
 
     def tutor_instruction_signal(self, action):
         if -1.0 < self.current_obs[0] < 0 and self.current_obs[1] > 0.01:

@@ -5,8 +5,9 @@ import numpy as np
 import torch as th
 from visu.visu_policies import final_show
 
-from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3 import DDPG, REINFORCE
+from stable_baselines3.common.utils import obs_as_tensor
+
 
 def plot_critic(simu, model, study, default_string, num):
     """
