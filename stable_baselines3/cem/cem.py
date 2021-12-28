@@ -152,7 +152,8 @@ class CEM(BaseAlgorithm):
         self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
         self._dump_logs()
 
-    def create_next_gen(self, centroid: np.ndarray) -> np.ndarray, np.ndarray:
+    def create_next_gen(self, centroid: np.ndarray)
+    -> Union[np.ndarray, np.ndarray]:
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
@@ -201,7 +202,7 @@ class CEM(BaseAlgorithm):
         self.log_scores(scores)
         return weights, scores
 
-    def update_centroid_and_cov(self, weights, scores):
+    def update_centroid_and_cov(self, weights, scores) -> np.ndarray:
         # Keep only best individuals to compute the new centroid
         elites_idxs = scores.argsort()[-self.elites_nb :]
         elites_weights = weights[elites_idxs]
