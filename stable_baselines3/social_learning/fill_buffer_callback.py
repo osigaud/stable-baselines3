@@ -9,7 +9,7 @@ class FillBufferCallback(BaseCallback):
     """
 
     def __init__(self, model, env, buffer, verbose=0):
-        super(CustomCallback, self).__init__(verbose)
+        super().__init__(verbose)
         self.model = model
         self.env = env
         self.buffer = buffer
@@ -55,16 +55,16 @@ class FillBufferCallback(BaseCallback):
         :return: (bool) If the callback returns False, training is aborted early.
         """
         return True
-        self.buffer.add(
-            obs=self._last_obs,
-            action=actions,
-            value=values,
-            reward=rewards,
-            episode_start=self._last_episode_starts,
-            done=dones,
-            infos=infos,
-        )
-        return True
+        # self.buffer.add(
+        #     obs=self._last_obs,
+        #     action=actions,
+        #     value=values,
+        #     reward=rewards,
+        #     episode_start=self._last_episode_starts,
+        #     done=dones,
+        #     infos=infos,
+        # )
+        # return True
 
     def _on_rollout_end(self) -> None:
         """

@@ -1,6 +1,6 @@
 import time
 from copy import deepcopy
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
@@ -142,8 +142,8 @@ class CEM(BaseAlgorithm):
     def update_best_policy(self, score, weights) -> None:
         # Update if it is same score but more recent policy
         if score >= self.best_score:
-           self.best_score = score
-           self.set_params(self.policy, weights)
+            self.best_score = score
+            self.set_params(self.policy, weights)
 
     def log_scores(self, scores) -> None:
         self.logger.record("train/mean_score", np.mean(scores))
@@ -152,7 +152,7 @@ class CEM(BaseAlgorithm):
         self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
         self._dump_logs()
 
-    def create_next_gen(self, centroid: np.ndarray) -> Union[np.ndarray, np.ndarray]:
+    def create_next_gen(self, centroid: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
@@ -162,10 +162,10 @@ class CEM(BaseAlgorithm):
             param_noise = np.random.randn(self.pop_size, self.policy_dim)
             weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
         else:
-            # The params of policies at iteration t+1 are drawn according to a multivariate 
+            # The params of policies at iteration t+1 are drawn according to a multivariate
             # Gaussian whose center is centroid and whose shape is defined by cov
             weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
-        
+
         for i in range(self.pop_size):
             # Evaluate each individual
             self.set_params(self.train_policy, weights[i])
@@ -177,10 +177,10 @@ class CEM(BaseAlgorithm):
             )
 
             scores[i] = np.mean(episode_rewards)
-            
+
             # Save best params
             self.update_best_policy(scores[i], weights[i])
-                                    
+
             # Mimic Monitor Wrapper
             infos = [
                 {"episode": {"r": episode_reward, "l": episode_length}}

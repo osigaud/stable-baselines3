@@ -9,7 +9,7 @@ from visu.visu_policies import plot_2d_policy  # Function to plot policies
 from visu.visu_trajectories import plot_trajectory
 
 from stable_baselines3 import TD3, HerReplayBuffer
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import CallbackList, EvalCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
