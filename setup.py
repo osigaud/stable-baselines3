@@ -120,7 +120,7 @@ setup(
             # For render
             "opencv-python",
             # For atari games,
-            "atari_py~=0.2.0",
+            "atari_py==0.2.6",
             "pillow",
             # Tensorboard support
             "tensorboard>=2.2.0",
@@ -138,11 +138,10 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=f"{__version__}+{hash}",
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     # PyPI package information.
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

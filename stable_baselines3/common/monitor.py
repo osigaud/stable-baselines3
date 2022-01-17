@@ -178,7 +178,8 @@ class ResultsWriter:
                 filename = os.path.join(filename, Monitor.EXT)
             else:
                 filename = filename + "." + Monitor.EXT
-        self.file_handler = open(filename, "wt")
+        # Prevent newline issue on Windows, see GH issue #692
+        self.file_handler = open(filename, "wt", newline="\n")
         self.file_handler.write("#%s\n" % json.dumps(header))
         self.logger = csv.DictWriter(self.file_handler, fieldnames=("r", "l", "t") + extra_keys)
         self.logger.writeheader()
