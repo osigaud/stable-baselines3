@@ -15,6 +15,40 @@ from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 
+class CovMatrix():
+    def __init__(self, sigma, noise_multiplier, seed, diag_cov=False):
+        self.sigma = sigma
+        self.noise_multiplier = noise_multiplier
+        self.diag_cov = diag_cov
+        
+        # Random number generator to sample weights
+        # from the Gaussian distribution     
+        self.rng = np.random.default_rng(seed)
+
+    def init_covariance(self, centroid: np.ndarray) -> None:
+        self.policy_dim = len(centroid)
+        self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
+        self.cov = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise_matrix
+
+    def update_noise(self) -> None:
+        self.noise_matrix = self.noise_matrix * self.noise_multiplier
+
+    def generate_weights(self, centroid, pop_size) -> np.ndarray:
+        if self.diag_cov:
+            # Separable CEM, useful when self.policy_dim >> 100
+            # Use only diagonal of the covariance matrix
+            param_noise = np.random.randn(self.pop_size, self.policy_dim)
+            weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
+        else:
+            # The params of policies at iteration t+1 are drawn according to a multivariate
+            # Gaussian whose center is centroid and whose shape is defined by cov
+            weights = self.rng.multivariate_normal(centroid, self.cov, pop_size)
+        return weights
+
+    def update_covariance(self, elites_weights: np.ndarray) -> None:
+        self.cov = np.cov(elites_weights, rowvar=False) + self.noise_matrix
+
+
 class CEM(BaseAlgorithm):
     """
     The Cross Entropy Method
@@ -89,16 +123,9 @@ class CEM(BaseAlgorithm):
         self.train_policy = None
         self.nb_epochs = nb_epochs
         self.best_score = -np.inf
-        self.diag_cov = diag_cov
 
-        self.sigma = sigma
-        self.noise_matrix = None
-        self.cov = None
-        # Random number generator to sample weights
-        # from the Gaussian distribution
-        self.rng = None
         self.policy_dim = None
-        self.noise_multiplier = noise_multiplier
+        self.matrix = CovMatrix(sigma, noise_multiplier, seed, diag_cov)
 
         if _init_setup_model:
             self._setup_model()
@@ -109,7 +136,6 @@ class CEM(BaseAlgorithm):
 
     def _setup_model(self) -> None:
         self.set_random_seed(self.seed)
-        self.rng = np.random.default_rng(self.seed)
 
         self.policy = self.policy_class(  # pytype:disable=not-instantiable
             self.observation_space, self.action_space, **self.policy_kwargs  # pytype:disable=not-instantiable
@@ -123,21 +149,13 @@ class CEM(BaseAlgorithm):
 
         # Init the covariance matrix
         centroid = self.get_params(self.train_policy)
-        self.init_covariance(centroid)
+        self.matrix.init_covariance(centroid)
 
     def get_params(self, policy: CEMPolicy) -> np.ndarray:
         return policy.parameters_to_vector()  # note: also retrieves critic params...
 
     def set_params(self, policy: CEMPolicy, indiv: np.ndarray) -> None:
         policy.load_from_vector(indiv.copy())
-
-    def init_covariance(self, centroid: np.ndarray) -> None:
-        self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
-        self.cov = np.diag(np.ones(self.policy_dim) * np.var(centroid)) + self.noise_matrix
-
-    def update_noise_matrix(self) -> None:
-        self.sigma = self.sigma * self.noise_multiplier
-        self.noise_matrix = np.diag(np.ones(self.policy_dim) * self.sigma)
 
     def update_best_policy(self, score, weights) -> None:
         # Update if it is same score but more recent policy
@@ -148,24 +166,26 @@ class CEM(BaseAlgorithm):
     def log_scores(self, scores) -> None:
         self.logger.record("train/mean_score", np.mean(scores))
         self.logger.record("train/best_score", sorted(scores)[-1])
-        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.cov))))
-        self.logger.record("train/noise", np.mean(np.diagonal(self.noise_matrix)))
+        self.logger.record("train/diag_std", np.mean(np.sqrt(np.diagonal(self.matrix.cov))))
+        self.logger.record("train/noise", np.mean(np.diagonal(self.matrix.noise_matrix)))
         self._dump_logs()
+
+    def update_centroid_and_cov(self, weights, scores) -> np.ndarray:
+        # Keep only best individuals to compute the new centroid
+        elites_idxs = scores.argsort()[-self.elites_nb :]
+        elites_weights = weights[elites_idxs]
+
+        # The new centroid is the barycenter of the elite individuals
+        centroid = np.array(elites_weights).mean(axis=0)
+        # Update covariance
+        self.matrix.update_covariance(elites_weights)
+        return centroid
 
     def create_next_gen(self, centroid: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # The scores are initialized
         scores = np.zeros(self.pop_size)
 
-        if self.diag_cov:
-            # Separable CEM, useful when self.policy_dim >> 100
-            # Use only diagonal of the covariance matrix
-            param_noise = np.random.randn(self.pop_size, self.policy_dim)
-            weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
-        else:
-            # The params of policies at iteration t+1 are drawn according to a multivariate
-            # Gaussian whose center is centroid and whose shape is defined by cov
-            weights = self.rng.multivariate_normal(centroid, self.cov, self.pop_size)
-
+        weights = self.matrix.generate_weights(centroid, self.pop_size)
         for i in range(self.pop_size):
             # Evaluate each individual
             self.set_params(self.train_policy, weights[i])
@@ -201,23 +221,11 @@ class CEM(BaseAlgorithm):
         self.log_scores(scores)
         return weights, scores
 
-    def update_centroid_and_cov(self, weights, scores) -> np.ndarray:
-        # Keep only best individuals to compute the new centroid
-        elites_idxs = scores.argsort()[-self.elites_nb :]
-        elites_weights = weights[elites_idxs]
-
-        # The new centroid is the barycenter of the elite individuals
-        centroid = np.array(elites_weights).mean(axis=0)
-        # Update covariance
-        self.cov = np.cov(elites_weights, rowvar=False) + self.noise_matrix
-
-        return centroid
-
     def learn_one_epoch(self, callback: BaseCallback) -> bool:
         callback.on_rollout_start()
 
         centroid = self.get_params(self.train_policy)
-        self.update_noise_matrix()
+        self.matrix.update_noise()
 
         weights, scores = self.create_next_gen(centroid)
 

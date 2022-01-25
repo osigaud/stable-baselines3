@@ -208,8 +208,8 @@ def test_cem() -> None:
     os.makedirs(log_dir, exist_ok=True)
     env_name = "Pendulum-v0"
     args.nb_rollouts = 8
-    env = gym.make(args.env_name)
-    file_name = "cem_" + args.env_name
+    env = gym.make(env_name)
+    file_name = "cem_" + env_name
     log_file_name = log_dir + file_name
     eval_callback = EvalCallback(
         env,
@@ -220,21 +220,27 @@ def test_cem() -> None:
         deterministic=True,
         render=False,
     )
-    policy_kwargs = dict(net_arch=[10, 10])
+    policy_kwargs = dict(net_arch=[32])
 
     model = CEM(
         "MlpPolicy",
         env_name,
         seed=1,
         verbose=1,
-        sigma=0.05,
+        noise_multiplier=0.999,
+        n_eval_episodes=4,
+        sigma=0.2,
+        pop_size=20,
         policy_kwargs=policy_kwargs,
         tensorboard_log=log_file_name,
     )
     if plot_policies:
         plot_policy(model, env, env_name, "cem", final_string="pre")
 
-    model.learn(reset_num_timesteps=True, nb_epochs=10, callback=eval_callback, log_interval=args.log_interval)
+    model.learn(
+        total_timesteps=1e6,
+        callback=eval_callback,
+        log_interval=20)
     if plot_policies:
         plot_policy(model, env, env_name, "cem", final_string="post")
 
