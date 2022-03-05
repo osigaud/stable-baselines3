@@ -1,4 +1,5 @@
 import operator
+import warnings
 
 import gym
 import numpy as np
@@ -16,7 +17,7 @@ from stable_baselines3.common.vec_env import (
     unwrap_vec_normalize,
 )
 
-ENV_ID = "Pendulum-v0"
+ENV_ID = "Pendulum-v1"
 
 
 class DummyRewardEnv(gym.Env):
@@ -120,7 +121,7 @@ def make_dict_env():
 def test_deprecation():
     venv = DummyVecEnv([lambda: gym.make("CartPole-v1")])
     venv = VecNormalize(venv)
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings(record=True) as record:
         assert np.allclose(venv.ret, venv.returns)
     # Deprecation warning when using .ret
     assert len(record) == 1
@@ -450,3 +451,6 @@ def test_non_dict_obs_keys():
 
     # Ignore Discrete observation key
     _make_warmstart(lambda: DummyMixedDictEnv(), norm_obs_keys=["obs1", "obs3"])
+
+    # Test dict obs with norm_obs set to False
+    _make_warmstart(lambda: DummyMixedDictEnv(), norm_obs=False)
