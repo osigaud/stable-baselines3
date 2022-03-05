@@ -237,10 +237,7 @@ def test_cem() -> None:
     if plot_policies:
         plot_policy(model, env, env_name, "cem", final_string="pre")
 
-    model.learn(
-        total_timesteps=1e6,
-        callback=eval_callback,
-        log_interval=20)
+    model.learn(total_timesteps=1e6, callback=eval_callback, log_interval=20)
     if plot_policies:
         plot_policy(model, env, env_name, "cem", final_string="post")
 

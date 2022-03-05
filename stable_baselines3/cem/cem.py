@@ -15,14 +15,14 @@ from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 
 
-class CovMatrix():
+class CovMatrix:
     def __init__(self, sigma, noise_multiplier, seed, diag_cov=False):
         self.sigma = sigma
         self.noise_multiplier = noise_multiplier
         self.diag_cov = diag_cov
-        
+
         # Random number generator to sample weights
-        # from the Gaussian distribution     
+        # from the Gaussian distribution
         self.rng = np.random.default_rng(seed)
 
     def init_covariance(self, centroid: np.ndarray) -> None:
