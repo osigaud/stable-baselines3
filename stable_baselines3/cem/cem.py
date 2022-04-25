@@ -25,6 +25,8 @@ class CovMatrix:
         # Random number generator to sample weights
         # from the Gaussian distribution
         self.rng = np.random.default_rng(seed)
+        self.policy_dim = 0
+        self.cov = np.empty()
 
     def init_covariance(self, centroid: np.ndarray) -> None:
         self.policy_dim = len(centroid)
@@ -38,7 +40,7 @@ class CovMatrix:
         if self.diag_cov:
             # Separable CEM, useful when self.policy_dim >> 100
             # Use only diagonal of the covariance matrix
-            param_noise = np.random.randn(self.pop_size, self.policy_dim)
+            param_noise = np.random.randn(pop_size, self.policy_dim)
             weights = centroid + param_noise * np.sqrt(np.diagonal(self.cov))
         else:
             # The params of policies at iteration t+1 are drawn according to a multivariate
