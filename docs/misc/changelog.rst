@@ -4,11 +4,14 @@ Changelog
 ==========
 
 
-Release 1.5.1a0 (WIP)
+Release 1.5.1a5 (WIP)
 ---------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
+  ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
+- SB3 now requires PyTorch >= 1.11
 
 New Features:
 ^^^^^^^^^^^^^
@@ -19,15 +22,21 @@ SB3-Contrib
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed saving and loading large policies greater than 2GB (@jkterry1, @ycheng517)
+- Fixed final goal selection strategy that did not sample the final achieved goal (@qgallouedec)
+- Fixed a bug with special characters in the tensorboard log name (@quantitative-technologies)
+- Fixed a bug in ``DummyVecEnv``'s and ``SubprocVecEnv``'s seeding function. None value was unchecked (@ScheiklP)
 
 Deprecations:
 ^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
+- Upgraded to Python 3.7+ syntax using ``pyupgrade``
 
 Documentation:
 ^^^^^^^^^^^^^^
+- Added link to gym doc and gym env checker
+- Fix typo in PPO doc (@bcollazo)
 
 
 Release 1.5.0 (2022-03-25)
@@ -957,4 +966,4 @@ And all the contributors:
 @wkirgsn @AechPro @CUN-bjy @batu @IljaAvadiev @timokau @kachayev @cleversonahum
 @eleurent @ac-93 @cove9988 @theDebugger811 @hsuehch @Demetrio92 @thomasgubler @IperGiove @ScheiklP
 @simoninithomas @armandpl @manuel-delverme @Gautam-J @gianlucadecola @buoyancy99 @caburu @xy9485
-@Gregwar @ycheng517
+@Gregwar @ycheng517 @quantitative-technologies @bcollazo

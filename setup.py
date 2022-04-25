@@ -3,7 +3,7 @@ import subprocess
 
 from setuptools import find_packages, setup
 
-with open(os.path.join("stable_baselines3", "version.txt"), "r") as file_handler:
+with open(os.path.join("stable_baselines3", "version.txt")) as file_handler:
     __version__ = file_handler.read().strip()
 
 # Taken from PyTorch code to have a different version per commit
@@ -79,7 +79,7 @@ setup(
     install_requires=[
         "gym==0.21",  # Fixed version due to breaking changes in 0.22
         "numpy",
-        "torch>=1.8.1",
+        "torch>=1.11",
         # For saving models
         "cloudpickle",
         # For reading logs
@@ -120,7 +120,7 @@ setup(
             # For render
             "opencv-python",
             # For atari games,
-            "ale-py~=0.7.4",
+            "ale-py==0.7.4",
             "autorom[accept-rom-license]~=0.4.2",
             "pillow",
             # Tensorboard support

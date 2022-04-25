@@ -6,7 +6,7 @@ import numpy as np
 import torch as th
 from gym import spaces
 
-from stable_baselines3.cem.policies import CEMPolicy
+from stable_baselines3.cem.policies import CEMPolicy, MlpPolicy
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
@@ -76,6 +76,10 @@ class CEM(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[CEMPolicy]],
@@ -98,10 +102,9 @@ class CEM(BaseAlgorithm):
         _init_setup_model: bool = True,
     ):
 
-        super(CEM, self).__init__(
+        super().__init__(
             policy,
             env,
-            policy_base=policy_base,
             learning_rate=0.0,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
