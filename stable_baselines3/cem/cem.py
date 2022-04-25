@@ -7,9 +7,10 @@ import torch as th
 from gym import spaces
 
 from stable_baselines3.cem.policies import CEMPolicy, MlpPolicy
+from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.on_policy_algorithm import BaseAlgorithm, BasePolicy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import safe_mean
 from stable_baselines3.her.her_replay_buffer import get_time_limit

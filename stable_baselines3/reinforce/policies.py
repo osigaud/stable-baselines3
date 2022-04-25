@@ -12,7 +12,7 @@ from stable_baselines3.common.distributions import (
     MultiCategoricalDistribution,
     make_proba_distribution,
 )
-from stable_baselines3.common.policies import BasePolicy, register_policy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     FlattenExtractor,
@@ -371,6 +371,3 @@ class REINFORCEPolicy(BasePolicy):
 
 
 MlpPolicy = REINFORCEPolicy
-
-
-register_policy("MlpPolicy", REINFORCEPolicy)

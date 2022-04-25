@@ -10,13 +10,14 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import get_time_limit
 from stable_baselines3.reinforce.episodic_buffer import EpisodicBuffer
 from stable_baselines3.reinforce.expert_policies import continuous_mountain_car_expert_policy
-from stable_baselines3.reinforce.policies import REINFORCEPolicy
+from stable_baselines3.reinforce.policies import MlpPolicy, REINFORCEPolicy
 
 
 class REINFORCE(BaseAlgorithm):
@@ -59,12 +60,15 @@ class REINFORCE(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[REINFORCEPolicy]],
         env: Union[GymEnv, str],
         max_episode_steps: Optional[int] = None,
-        policy_base: Type[REINFORCEPolicy] = REINFORCEPolicy,
         learning_rate: Union[float, Schedule] = 0.01,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -86,10 +90,9 @@ class REINFORCE(BaseAlgorithm):
         nb_rollouts: int = 5,
         _init_setup_model: bool = True,
     ):
-        super(REINFORCE, self).__init__(
+        super().__init__(
             policy,
             env,
-            policy_base=policy_base,
             learning_rate=learning_rate,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
