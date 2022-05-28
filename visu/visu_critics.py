@@ -70,7 +70,7 @@ def plot_2d_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                         value = model.critic.forward(obs_as_tensor(obs, model.device), action)
                         print("visu critic: algo not covered")
                 else:
-                    # For A2C/PPO/DDPG
+                    # For A2C/PPO
                     action = model.forward(obs_as_tensor(obs, model.device))
                     value = model.predict_values(obs_as_tensor(obs, model.device), action)
             portrait[definition - (1 + index_y), index_x] = value.item()
@@ -121,7 +121,7 @@ def plot_nd_critic(model, env, plot=True, figname="vfunction.pdf", foldername="/
                         else:
                             print("visu critic: algo not covered")
                     else:
-                        # For A2C/PPO/DDPG
+                        # For A2C/PPO
                         action = model.forward(obs_as_tensor(obs, model.device))
                         value = model.predict_values(obs_as_tensor(obs, model.device), action)
                 portrait[definition - (1 + index_y), index_x] = value.item()

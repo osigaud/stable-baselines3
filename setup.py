@@ -127,6 +127,8 @@ setup(
             "tensorboard>=2.2.0",
             # Checking memory taken by replay buffer
             "psutil",
+            # Additional environments
+            "my_gym",
         ],
     },
     description="Pytorch version of Stable Baselines, implementations of reinforcement learning algorithms.",
