@@ -26,7 +26,7 @@ class CovMatrix:
         # from the Gaussian distribution
         self.rng = np.random.default_rng(seed)
         self.policy_dim = 0
-        self.cov = np.empty()
+        self.cov = None
 
     def init_covariance(self, centroid: np.ndarray) -> None:
         self.policy_dim = len(centroid)

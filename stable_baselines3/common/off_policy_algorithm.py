@@ -272,7 +272,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         tb_log_name: str = "run",
     ) -> Tuple[int, BaseCallback]:
         """
-        cf `BaseAlgorithm`.
+        cf. `BaseAlgorithm`.
         """
         # Prevent continuity issue by truncating trajectory
         # when using memory efficient replay buffer
