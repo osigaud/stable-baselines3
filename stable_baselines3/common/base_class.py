@@ -185,6 +185,11 @@ class BaseAlgorithm(ABC):
             if self.use_sde and not isinstance(self.action_space, gym.spaces.Box):
                 raise ValueError("generalized State-Dependent Exploration (gSDE) can only be used with continuous actions.")
 
+            if isinstance(self.action_space, gym.spaces.Box):
+                assert np.all(
+                    np.isfinite(np.array([self.action_space.low, self.action_space.high]))
+                ), "Continuous action space must have a finite lower and upper bound"
+
     @staticmethod
     def _wrap_env(env: GymEnv, verbose: int = 0, monitor_wrapper: bool = True) -> VecEnv:
         """ "
@@ -208,11 +213,6 @@ class BaseAlgorithm(ABC):
 
         # Make sure that dict-spaces are not nested (not supported)
         check_for_nested_spaces(env.observation_space)
-
-        if isinstance(env.observation_space, gym.spaces.Dict):
-            for space in env.observation_space.spaces.values():
-                if isinstance(space, gym.spaces.Dict):
-                    raise ValueError("Nested observation spaces are not supported (Dict spaces inside Dict space).")
 
         if not is_vecenv_wrapped(env, VecTransposeImage):
             wrap_with_vectranspose = False
@@ -392,6 +392,7 @@ class BaseAlgorithm(ABC):
                 log_path=log_path,
                 eval_freq=eval_freq,
                 n_eval_episodes=n_eval_episodes,
+                verbose=self.verbose,
             )
             callback = CallbackList([callback, eval_callback])
 
@@ -422,7 +423,7 @@ class BaseAlgorithm(ABC):
         :param tb_log_name: the name of the run for tensorboard log
         :return:
         """
-        self.start_time = time.time()
+        self.start_time = time.time_ns()
 
         if self.ep_info_buffer is None or reset_num_timesteps:
             # Initialize buffers if they don't exist, or reinitialize if resetting counters
@@ -628,11 +629,11 @@ class BaseAlgorithm(ABC):
             attr = None
             try:
                 attr = recursive_getattr(self, name)
-            except Exception:
+            except Exception as e:
                 # What errors recursive_getattr could throw? KeyError, but
                 # possible something else too (e.g. if key is an int?).
                 # Catch anything for now.
-                raise ValueError(f"Key {name} is an invalid object name.")
+                raise ValueError(f"Key {name} is an invalid object name.") from e
 
             if isinstance(attr, th.optim.Optimizer):
                 # Optimizers do not support "strict" keyword...

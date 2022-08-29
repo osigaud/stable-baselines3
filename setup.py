@@ -47,10 +47,10 @@ import gym
 
 from stable_baselines3 import PPO
 
-env = gym.make('CartPole-v1')
+env = gym.make("CartPole-v1")
 
-model = PPO('MlpPolicy', env, verbose=1)
-model.learn(total_timesteps=10000)
+model = PPO("MlpPolicy", env, verbose=1)
+model.learn(total_timesteps=10_000)
 
 obs = env.reset()
 for i in range(1000):
@@ -61,12 +61,12 @@ for i in range(1000):
         obs = env.reset()
 ```
 
-Or just train a model with a one liner if [the environment is registered in Gym](https://github.com/openai/gym/wiki/Environments) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
+Or just train a model with a one liner if [the environment is registered in Gym](https://www.gymlibrary.ml/content/environment_creation/) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
 
 ```python
 from stable_baselines3 import PPO
 
-model = PPO('MlpPolicy', 'CartPole-v1').learn(10000)
+model = PPO("MlpPolicy", "CartPole-v1").learn(10_000)
 ```
 
 """  # noqa:E501
@@ -115,6 +115,8 @@ setup(
             "sphinxcontrib.spelling",
             # Type hints support
             "sphinx-autodoc-typehints",
+            # Copy button for code snippets
+            "sphinx_copybutton",
         ],
         "extra": [
             # For render
@@ -124,7 +126,7 @@ setup(
             "autorom[accept-rom-license]~=0.4.2",
             "pillow",
             # Tensorboard support
-            "tensorboard>=2.2.0",
+            "tensorboard>=2.9.1",
             # Checking memory taken by replay buffer
             "psutil",
             # Additional environments

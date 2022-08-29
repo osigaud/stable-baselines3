@@ -14,8 +14,10 @@ from matplotlib import pyplot as plt
 
 try:
     from torch.utils.tensorboard import SummaryWriter
+    from torch.utils.tensorboard.summary import hparams
 except ImportError:
     SummaryWriter = None
+
 
 DEBUG = 10
 INFO = 20
@@ -63,6 +65,22 @@ class Image:
     def __init__(self, image: Union[th.Tensor, np.ndarray, str], dataformats: str):
         self.image = image
         self.dataformats = dataformats
+
+
+class HParam:
+    """
+    Hyperparameter data class storing hyperparameters and metrics in dictionnaries
+
+    :param hparam_dict: key-value pairs of hyperparameters to log
+    :param metric_dict: key-value pairs of metrics to log
+        A non-empty metrics dict is required to display hyperparameters in the corresponding Tensorboard section.
+    """
+
+    def __init__(self, hparam_dict: Dict[str, Union[bool, str, float, int, None]], metric_dict: Dict[str, Union[float, int]]):
+        self.hparam_dict = hparam_dict
+        if not metric_dict:
+            raise Exception("`metric_dict` must not be empty to display hyperparameters to the HPARAMS tensorboard tab.")
+        self.metric_dict = metric_dict
 
 
 class FormatUnsupportedError(NotImplementedError):
@@ -164,6 +182,9 @@ class HumanOutputFormat(KVWriter, SeqWriter):
             elif isinstance(value, Image):
                 raise FormatUnsupportedError(["stdout", "log"], "image")
 
+            elif isinstance(value, HParam):
+                raise FormatUnsupportedError(["stdout", "log"], "hparam")
+
             elif isinstance(value, float):
                 # Align left
                 value_str = f"{value:<8.3g}"
@@ -246,12 +267,13 @@ def filter_excluded_keys(
 
 
 class JSONOutputFormat(KVWriter):
-    def __init__(self, filename: str):
-        """
-        log to a file, in the JSON format
+    """
+    Log to a file, in the JSON format
 
-        :param filename: the file to write the log to
-        """
+    :param filename: the file to write the log to
+    """
+
+    def __init__(self, filename: str):
         self.file = open(filename, "wt")
 
     def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], step: int = 0) -> None:
@@ -262,6 +284,8 @@ class JSONOutputFormat(KVWriter):
                 raise FormatUnsupportedError(["json"], "figure")
             if isinstance(value, Image):
                 raise FormatUnsupportedError(["json"], "image")
+            if isinstance(value, HParam):
+                raise FormatUnsupportedError(["json"], "hparam")
             if hasattr(value, "dtype"):
                 if value.shape == () or len(value) == 1:
                     # if value is a dimensionless numpy array or of length 1, serialize as a float
@@ -287,13 +311,13 @@ class JSONOutputFormat(KVWriter):
 
 
 class CSVOutputFormat(KVWriter):
+    """
+    Log to a file, in a CSV format
+
+    :param filename: the file to write the log to
+    """
+
     def __init__(self, filename: str):
-        """
-        log to a file, in a CSV format
-
-        :param filename: the file to write the log to
-        """
-
         self.file = open(filename, "w+t")
         self.keys = []
         self.separator = ","
@@ -331,6 +355,9 @@ class CSVOutputFormat(KVWriter):
             elif isinstance(value, Image):
                 raise FormatUnsupportedError(["csv"], "image")
 
+            elif isinstance(value, HParam):
+                raise FormatUnsupportedError(["csv"], "hparam")
+
             elif isinstance(value, str):
                 # escape quotechars by prepending them with another quotechar
                 value = value.replace(self.quotechar, self.quotechar + self.quotechar)
@@ -351,12 +378,13 @@ class CSVOutputFormat(KVWriter):
 
 
 class TensorBoardOutputFormat(KVWriter):
-    def __init__(self, folder: str):
-        """
-        Dumps key/value pairs into TensorBoard's numeric format.
+    """
+    Dumps key/value pairs into TensorBoard's numeric format.
 
-        :param folder: the folder to write the log to
-        """
+    :param folder: the folder to write the log to
+    """
+
+    def __init__(self, folder: str):
         assert SummaryWriter is not None, "tensorboard is not installed, you can use " "pip install tensorboard to do so"
         self.writer = SummaryWriter(log_dir=folder)
 
@@ -385,6 +413,13 @@ class TensorBoardOutputFormat(KVWriter):
 
             if isinstance(value, Image):
                 self.writer.add_image(key, value.image, step, dataformats=value.dataformats)
+
+            if isinstance(value, HParam):
+                # we don't use `self.writer.add_hparams` to have control over the log_dir
+                experiment, session_start_info, session_end_info = hparams(value.hparam_dict, metric_dict=value.metric_dict)
+                self.writer.file_writer.add_summary(experiment)
+                self.writer.file_writer.add_summary(session_start_info)
+                self.writer.file_writer.add_summary(session_end_info)
 
         # Flush the output to the file
         self.writer.flush()
